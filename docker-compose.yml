@@ -1,0 +1,10 @@
+name: research-pod
+
+services:
+  api:
+    build: .
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    restart: unless-stopped
