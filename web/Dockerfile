@@ -13,10 +13,8 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=production
 
-# Expose the port (using ARG to make it dynamic)
-ARG PORT=8888
-ENV PORT=$PORT
-EXPOSE ${PORT}
+# Expose the port (using a default value)
+EXPOSE 8080
 
 # Run using Gunicorn
-CMD gunicorn --bind "0.0.0.0:${PORT}" --workers 1 "api:server" --log-level debug
+CMD gunicorn --bind "0.0.0.0:8080" --workers 1 "server:server" --log-level debug
