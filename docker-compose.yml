@@ -3,15 +3,17 @@ name: research-pod
 services:
   research-api:
     build: ./research/
+    volumes:
+      - ./research/scraper/pdfs:/app/scraper/pdfs
     ports:
-      - "8081:8081"
+      - "8081:8080"
     env_file:
       - ./research/.env
     restart: unless-stopped
-  web-api:
-    build: ./web/
-    ports:
-      - "8080:8080"
-    env_file:
-      - ./web/.env
-    restart: unless-stopped
+  # web-api:
+  #   build: ./web/
+  #   ports:
+  #     - "8080:8080"
+  #   env_file:
+  #     - ./web/.env
+  #   restart: unless-stopped

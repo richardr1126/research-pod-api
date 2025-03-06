@@ -1,5 +1,10 @@
+setuptools
 flask
 python-dotenv
 flask-cors
 gunicorn
 paperscraper
+nltk
+openai
+pymupdf==1.25.2
+pymupdf4llm

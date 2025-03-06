@@ -20,10 +20,5 @@ def health_check():
 # Example route
 @server.route('/v1/api/hello', methods=['GET'])
 def hello():
-    message = "Hello from Flask! On PORT: " + os.getenv('PORT')
+    message = "Hello from Flask!"
     return jsonify({"message": message})
-
-
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 8888))
-    server.run(host='0.0.0.0', port=port, debug=True)

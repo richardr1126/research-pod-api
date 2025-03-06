@@ -1,9 +1,9 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 
 from dotenv import load_dotenv
-import os
+from scraper.scrape import scrape_arxiv
 
 # Load environment variables
 load_dotenv()
@@ -13,17 +13,23 @@ server = Flask(__name__)
 CORS(server)
 
 # Basic health check endpoint
-@server.route('/health', methods=['GET'])
+@server.route('/v1/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy"})
 
-# Example route
-@server.route('/v1/api/hello', methods=['GET'])
-def hello():
-    message = "Hello from Flask! On PORT: " + os.getenv('PORT')
-    return jsonify({"message": message})
-
-
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 8888))
-    server.run(host='0.0.0.0', port=port, debug=True)
+# Scrape endpoint
+@server.route('/v1/scrape', methods=['POST'])
+def scrape():
+    try:
+        body = request.get_json()
+        if not body:
+            return jsonify({"error": "Missing data in request body"}), 400
+            
+        if 'query' not in body:
+            return jsonify({"error": "Missing 'query' in request body"}), 400
+            
+        results = scrape_arxiv(body['query'], max_papers=3)
+        
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
