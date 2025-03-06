@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Research Pod</title>
+    <!-- Add the marked library for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 150px);
+            min-height: 500px;
+        }
+        .left-panel, .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .panel-header {
+            background-color: #f5f5f5;
+            padding: 10px;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+        }
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+        }
+        pre {
+            white-space: pre-wrap;
+            margin: 0;
+            font-family: monospace;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input[type="text"] {
+            padding: 8px;
+            width: 300px;
+            margin-right: 10px;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        .search-container {
+            margin-bottom: 20px;
+        }
+        .summary-content {
+            padding: 10px;
+        }
+        /* Markdown styling */
+        .markdown-content h1 {
+            color: #2c3e50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .markdown-content h2 {
+            color: #3498db;
+            margin-top: 20px;
+        }
+        .markdown-content ul {
+            padding-left: 20px;
+        }
+        .markdown-content li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Research Pod</h1>
+    
+    <div class="search-container">
+        <label for="query">Search Query:</label>
+        <input type="text" id="query" value="legal natural language processing">
+        <button onclick="makeRequest()">Search Papers</button>
+    </div>
+    
+    <div class="container">
+        <div class="left-panel">
+            <div class="panel-header">Paper Results</div>
+            <div class="panel-content">
+                <pre id="result">Results will appear here</pre>
+            </div>
+        </div>
+        <div class="right-panel">
+            <div class="panel-header">Summary</div>
+            <div class="panel-content" id="summary-container">
+                <div id="summary" class="summary-content markdown-content">Summary will appear here after processing</div>
+                <button id="process-btn" onclick="processPapers()" style="display:none;">Generate Summary</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let paperData = null;
+        
+        // Configure marked options
+        marked.setOptions({
+            breaks: true,  // Convert line breaks to <br>
+            gfm: true      // Enable GitHub Flavored Markdown
+        });
+        
+        function makeRequest() {
+            const query = document.getElementById('query').value;
+            const resultDiv = document.getElementById('result');
+            const summaryDiv = document.getElementById('summary');
+            const processBtn = document.getElementById('process-btn');
+            
+            resultDiv.textContent = 'Loading...';
+            summaryDiv.innerHTML = 'Summary will appear here after processing';
+            processBtn.style.display = 'none';
+            
+            fetch('http://localhost:8888/v1/scrape', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                paperData = data;
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                processBtn.style.display = 'block';
+            })
+            .catch(error => {
+                resultDiv.textContent = 'Error: ' + error.message;
+            });
+        }
+        
+        function processPapers() {
+            if (!paperData) {
+                alert('No paper data available. Please search for papers first.');
+                return;
+            }
+            
+            const summaryDiv = document.getElementById('summary');
+            const processBtn = document.getElementById('process-btn');
+            
+            summaryDiv.innerHTML = '<p class="loading">Generating summary...</p>';
+            processBtn.disabled = true;
+            
+            fetch('http://localhost:8888/v1/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ papers: paperData })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                // Convert markdown to HTML and set it as the innerHTML
+                const markdownContent = data.summary || "No summary was generated.";
+                summaryDiv.innerHTML = marked.parse(markdownContent);
+                processBtn.disabled = false;
+            })
+            .catch(error => {
+                console.error("Error processing papers:", error);
+                summaryDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                processBtn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>

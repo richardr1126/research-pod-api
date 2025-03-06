@@ -5,7 +5,7 @@ import os
 import json
 import uuid
 import shutil
-from .nlp import process_search_query
+from research.scraper.nlp import process_search_query
 
 def read_metadata_from_jsonl(jsonl_file):
     """
@@ -73,7 +73,8 @@ def scrape_arxiv(query, max_papers=3):
     """
     # Generate unique ID for this query
     query_uuid = str(uuid.uuid4())
-    query_dir = os.path.join("./scraper", query_uuid)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    query_dir = os.path.join(base_dir, "scraper", query_uuid)
     pdf_dir = os.path.join(query_dir, 'pdfs')
     output_filepath = os.path.join(query_dir, 'results.jsonl')
 

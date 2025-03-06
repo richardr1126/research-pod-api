@@ -3,7 +3,8 @@ from flask_cors import CORS
 import os
 
 from dotenv import load_dotenv
-from scraper.scrape import scrape_arxiv
+from research.scraper.scrape import scrape_arxiv
+from research.processor.summarize import process_papers
 
 # Load environment variables
 load_dotenv()
@@ -31,5 +32,22 @@ def scrape():
         results = scrape_arxiv(body['query'], max_papers=3)
         
         return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# New endpoint for processing papers
+@server.route('/v1/process', methods=['POST'])
+def process():
+    try:
+        body = request.get_json()
+        if not body:
+            return jsonify({"error": "Missing data in request body"}), 400
+            
+        if 'papers' not in body:
+            return jsonify({"error": "Missing 'papers' in request body"}), 400
+            
+        summary = process_papers(body['papers'])
+        
+        return jsonify({"summary": summary})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
