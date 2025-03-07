@@ -1,19 +1,76 @@
 name: research-pod
 
 services:
-  research-api:
-    build: ./research/
-    volumes:
-      - ./research/scraper/pdfs:/app/scraper/pdfs
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      zookeeper:
+        condition: service_healthy
     ports:
-      - "8081:8080"
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  web-api:
+    build: 
+      context: ./web/
+      dockerfile: Dockerfile
+    volumes:
+      - ./web:/app
+    ports:
+      - "8888:8080"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - FLASK_APP=server:server
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  research-consumer:
+    build: 
+      context: ./research/
+      dockerfile: Dockerfile
+    volumes:
+      - ./research:/app
+      - ./research/scraper/pdfs:/app/scraper/pdfs
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     env_file:
       - ./research/.env
-    restart: unless-stopped
-  # web-api:
-  #   build: ./web/
-  #   ports:
-  #     - "8080:8080"
-  #   env_file:
-  #     - ./web/.env
-  #   restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy

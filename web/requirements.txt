@@ -2,3 +2,4 @@ flask
 python-dotenv
 flask-cors
 gunicorn
+kafka-python

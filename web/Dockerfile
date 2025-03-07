@@ -1,4 +1,4 @@
-FROM python:slim-bookworm
+FROM python:3.12-slim AS base
 
 WORKDIR /app
 
@@ -11,10 +11,10 @@ COPY . .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV FLASK_ENV=production
 
-# Expose the port (using a default value)
-EXPOSE 8080
+# Default to development mode, can be overridden in compose
+ENV FLASK_ENV=development \
+    FLASK_DEBUG=1
 
-# Run using Gunicorn
-CMD gunicorn --bind "0.0.0.0:8080" --workers 1 "server:server" --log-level debug
+# Run with gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "server:server"]

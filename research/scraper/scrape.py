@@ -5,7 +5,15 @@ import os
 import json
 import uuid
 import shutil
+import logging
 from .nlp import process_search_query
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def read_metadata_from_jsonl(jsonl_file):
     """
@@ -51,12 +59,12 @@ def pdfs_to_markdown(pdf_dir, metadata_dict):
                     'text': md_text
                 })
                 results.append(paper_result)
-                print(f"Processed {pdf_file} to markdown successfully.")
+                logger.info(f"Processed {pdf_file} to markdown successfully.")
 
                 # Remove PDF file after processing
                 os.remove(pdf_path)
             except Exception as e:
-                print(f"Error processing {pdf_file}: {str(e)}")
+                logger.error(f"Error processing {pdf_file}: {str(e)}")
     return results
 
 def scrape_arxiv(query, max_papers=3):
@@ -73,31 +81,52 @@ def scrape_arxiv(query, max_papers=3):
     """
     # Generate unique ID for this query
     query_uuid = str(uuid.uuid4())
-    query_dir = os.path.join("./scraper", query_uuid)
-    pdf_dir = os.path.join(query_dir, 'pdfs')
+    pdf_dir = os.path.join("./scraper", 'pdfs')
+    query_dir = os.path.join(pdf_dir, query_uuid)
     output_filepath = os.path.join(query_dir, 'results.jsonl')
 
     try:
+        logger.info(f"Starting scrape for query: {query}")
+        logger.info(f"Using temporary directory: {query_dir}")
+
         # Create directories
         os.makedirs(query_dir, exist_ok=True)
         os.makedirs(pdf_dir, exist_ok=True)
 
         keyword_groups = process_search_query(query)
-        print(f"Categorized keyword groups: {keyword_groups}")
+        logger.info(f"Processed keyword groups: {keyword_groups}")
         
+        logger.info(f"Starting arXiv scraping for {max_papers} papers...")
         get_and_dump_arxiv_papers(keyword_groups, output_filepath=output_filepath, max_results=max_papers)
-        print("arXiv scraping completed successfully.")
+        logger.info("arXiv scraping completed successfully")
 
+        logger.info("Downloading PDFs...")
         save_pdf_from_dump(output_filepath, pdf_path=pdf_dir, key_to_save='doi')
+        logger.info("PDF downloads completed")
 
         # Read metadata from JSONL file
+        logger.info("Processing paper metadata...")
         metadata = read_metadata_from_jsonl(output_filepath)
+        logger.info(f"Found metadata for {len(metadata)} papers")
         
+        logger.info("Converting PDFs to markdown...")
         results = pdfs_to_markdown(pdf_dir, metadata)
+        logger.info(f"Successfully processed {len(results)} papers to markdown")
         
+        # Log a summary of the results
+        for idx, paper in enumerate(results, 1):
+            logger.info(f"\nPaper {idx}:")
+            logger.info(f"Title: {paper.get('title', 'N/A')}")
+            logger.info(f"Authors: {paper.get('authors', 'N/A')}")
+            logger.info(f"DOI: {paper.get('doi', 'N/A')}")
+            logger.info(f"Abstract: {paper.get('abstract', 'N/A')[:200]}...")
+
         return results
+    except Exception as e:
+        logger.error(f"Error during scraping: {str(e)}", exc_info=True)
+        raise
     finally:
         # Clean up the temporary directory
         if os.path.exists(query_dir):
             shutil.rmtree(query_dir)
-            print(f"Cleaned up temporary directory: {query_dir}")
+            logger.info(f"Cleaned up temporary directory: {query_dir}")
