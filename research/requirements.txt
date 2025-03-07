@@ -8,3 +8,5 @@ nltk
 openai
 pymupdf==1.25.2
 pymupdf4llm
+langchain-openai
+langchain-core
