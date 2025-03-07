@@ -35,7 +35,7 @@ def scrape():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# New endpoint for processing papers
+# Process endpoint
 @server.route('/v1/process', methods=['POST'])
 def process():
     try:

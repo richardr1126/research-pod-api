@@ -11,7 +11,6 @@ class SummaryState:
     research_loop_count: int = field(default=0) # Research loop count
     running_summary: str = field(default=None) # Final report
     podcast_script: str = field(default=None) # Podcast script
-    # llm: str = field(default=None) # LLM
 
 @dataclass(kw_only=True)
 class SummaryStateInput:
@@ -20,4 +19,4 @@ class SummaryStateInput:
 @dataclass(kw_only=True)
 class SummaryStateOutput:
     running_summary: str = field(default=None) # Final report
-    podcast_script: str = field(default=None) # Podcast script
+    sources_gathered: Annotated[list, operator.add] = field(default_factory=list) 

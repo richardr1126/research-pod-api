@@ -18,23 +18,12 @@ from prompts import query_writer_instructions, summarizer_instructions, reflecti
 # Nodes
 def generate_query(state: SummaryState, config: RunnableConfig):
     """ Generate a query for web search """
-
+    print("Generating query...")
     # Format the prompt
     query_writer_instructions_formatted = query_writer_instructions.format(research_topic=state.research_topic)
     
     # Generate a query
     configurable = Configuration.from_runnable_config(config)
-    # llm_json_mode = ChatOllama(base_url=configurable.ollama_base_url, model=configurable.local_llm, temperature=0, format="json")
-    # llm = get_llm("ollama",
-    #               base_url=configurable.ollama_base_url,
-    #               model=configurable.local_llm,
-    #               temperature=0,
-    #               format="json")
-    # llm = get_llm("openai",
-    #               model="gpt-4o-mini",
-    #               temperature=1,
-    #               format="json")
-    # llm = configurable.llm
     llm = get_llm("deepseek",
                   model="deepseek-chat",
                   api_key=configurable.deepseek_api_key,
@@ -56,16 +45,14 @@ def generate_query(state: SummaryState, config: RunnableConfig):
         [SystemMessage(content=query_writer_instructions_formatted + f"\n\n{parser.get_format_instructions()}"),
         HumanMessage(content=f"Generate a query for web search:")]
     )
-    # print(result)
 
-    # query = json.loads(result)
     query = result
 
     return {"search_query": query['query']}
 
 def web_research(state: SummaryState, config: RunnableConfig):
     """ Gather information from the web """
-
+    print("Gathering information from the web...")
     # Configure
     configurable = Configuration.from_runnable_config(config)
 
@@ -94,7 +81,7 @@ def web_research(state: SummaryState, config: RunnableConfig):
 
 def summarize_sources(state: SummaryState, config: RunnableConfig):
     """ Summarize the gathered sources """
-
+    print("Summarizing the gathered sources...")
     # Existing summary
     existing_summary = state.running_summary
 
@@ -116,15 +103,6 @@ def summarize_sources(state: SummaryState, config: RunnableConfig):
 
     # Run the LLM
     configurable = Configuration.from_runnable_config(config)
-    # llm = ChatOllama(base_url=configurable.ollama_base_url, model=configurable.local_llm, temperature=0)
-    # llm = get_llm("ollama",
-    #               base_url=configurable.ollama_base_url,
-    #               model=configurable.local_llm,
-    #               temperature=0)
-    # llm = get_llm("openai",
-    #               model="gpt-4o-mini",
-    #               temperature=1)
-    # llm = configurable.llm
     llm = get_llm("deepseek",
                   model="deepseek-chat",
                   api_key=configurable.deepseek_api_key,
@@ -148,19 +126,9 @@ def summarize_sources(state: SummaryState, config: RunnableConfig):
 
 def reflect_on_summary(state: SummaryState, config: RunnableConfig):
     """ Reflect on the summary and generate a follow-up query """
-
+    print("Reflecting on the summary and generating a follow-up query...")
     # Generate a query
     configurable = Configuration.from_runnable_config(config)
-    # llm_json_mode = ChatOllama(base_url=configurable.ollama_base_url, model=configurable.local_llm, temperature=0, format="json")
-    # llm = get_llm("ollama",
-    #               base_url=configurable.ollama_base_url,
-    #               model=configurable.local_llm,
-    #               temperature=0,
-    #               format="json")
-    # llm = get_llm("openai",
-    #               model="gpt-4o-mini",
-    #               temperature=1)
-    # llm = configurable.llm
     llm = get_llm("deepseek",
                   model="deepseek-chat",
                   api_key=configurable.deepseek_api_key,
@@ -195,7 +163,7 @@ def reflect_on_summary(state: SummaryState, config: RunnableConfig):
 
 def finalize_summary(state: SummaryState):
     """ Finalize the summary """
-
+    print("Finalizing the summary...")
     # Format all accumulated sources into a single bulleted list
     all_sources = "\n".join(source for source in state.sources_gathered)
     state.running_summary = f"## Summary\n\n{state.running_summary}\n\n ### Sources:\n{all_sources}"
@@ -255,7 +223,7 @@ def debug_state(state: SummaryState):
 
 def route_research(state: SummaryState, config: RunnableConfig) -> Literal["finalize_summary", "web_research"]:
     """ Route the research based on the follow-up query """
-
+    print("Routing the research...")
     configurable = Configuration.from_runnable_config(config)
     if state.research_loop_count <= configurable.max_web_research_loops:
         return "web_research"
