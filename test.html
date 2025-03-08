@@ -68,6 +68,8 @@
         }
         .search-container {
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
         }
         .summary-content {
             padding: 10px;
@@ -105,19 +107,79 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .toggle-container {
+            display: flex;
+            flex-direction: column;
+            margin-left: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .toggle-option {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .toggle-option label {
+            margin-left: 5px;
+        }
+        .toggle-info {
+            color: #dc3545;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .timer {
+            font-family: monospace;
+            font-size: 1.2em;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .timer.running {
+            color: #0d6efd;
+        }
+        .timer.completed {
+            color: #198754;
+        }
     </style>
 </head>
 <body>
-    <h1>Research Pod</h1>
+    <div class="header-container">
+        <h1>Research Pod</h1>
+        <div id="search-timer" class="timer">00:00:00</div>
+    </div>
     
     <div id="service-status" class="status-indicator status-offline">
         Checking service status...
     </div>
     
     <div class="search-container">
-        <label for="query">Search Query:</label>
-        <input type="text" id="query" value="legal natural language processing">
-        <button id="search-btn" onclick="makeRequest()" disabled>Search Papers</button>
+        <div>
+            <label for="query">Search Query:</label>
+            <input type="text" id="query" value="legal natural language processing">
+            <button id="search-btn" onclick="makeRequest()" disabled>Search Papers</button>
+        </div>
+        
+        <div class="toggle-container">
+            <div class="toggle-option">
+                <input type="checkbox" id="use-scrape" checked>
+                <label for="use-scrape">Paper Scrape</label>
+            </div>
+            <div class="toggle-option">
+                <input type="checkbox" id="use-websearch" checked>
+                <label for="use-websearch">Web Search</label>
+            </div>
+            <div class="toggle-info" id="toggle-info">
+                If both are on, do both endpoints
+            </div>
+        </div>
     </div>
     
     <div class="container">
@@ -139,6 +201,10 @@
     <script>
         let paperData = null;
         let websearchData = null;
+        let timerInterval = null;
+        let startTime = null;
+        let scrapeCompleted = false;
+        let websearchCompleted = false;
         
         // Configure marked options
         marked.setOptions({
@@ -180,71 +246,171 @@
             });
         }
         
+        // Timer functions
+        function startTimer() {
+            const timerElement = document.getElementById('search-timer');
+            timerElement.className = 'timer running';
+            startTime = new Date();
+            
+            // Reset completion flags
+            scrapeCompleted = false;
+            websearchCompleted = false;
+            
+            // Clear any existing interval
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            // Update timer every 100ms
+            timerInterval = setInterval(() => {
+                const elapsedTime = new Date() - startTime;
+                timerElement.textContent = formatTime(elapsedTime);
+            }, 100);
+        }
+        
+        function checkTimerCompletion(useScrape, useWebsearch) {
+            if ((useScrape && !scrapeCompleted) || (useWebsearch && !websearchCompleted)) {
+                // Still waiting for at least one search to complete
+                return;
+            }
+            
+            // All selected searches are complete, stop the timer
+            stopTimer();
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                
+                const timerElement = document.getElementById('search-timer');
+                timerElement.className = 'timer completed';
+            }
+        }
+        
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const ms = Math.floor((milliseconds % 1000) / 10);
+            
+            return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}.${pad(ms)}`;
+        }
+        
+        function pad(num) {
+            return num.toString().padStart(2, '0');
+        }
+        
         function makeRequest() {
             const query = document.getElementById('query').value;
             const resultDiv = document.getElementById('result');
             const summaryDiv = document.getElementById('summary');
             const processBtn = document.getElementById('process-btn');
+            const useScrape = document.getElementById('use-scrape').checked;
+            const useWebsearch = document.getElementById('use-websearch').checked;
+            
+            if (!useScrape && !useWebsearch) {
+                alert('Please select at least one search option');
+                return;
+            }
+            
+            // Start the timer
+            startTimer();
             
             resultDiv.textContent = 'Loading...';
             summaryDiv.innerHTML = 'Summary will appear here after processing';
             processBtn.style.display = 'none';
             
-            // Create promise for scrape API call
-            const scrapePromise = fetch('http://localhost:8888/v1/scrape', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ query: query })
-            }).then(response => response.json());
+            // Initialize results object
+            const results = {};
+            let scrapePromise = Promise.resolve(null);
+            let websearchPromise = Promise.resolve(null);
             
-            // Start websearch as async task
-            const websearchPromise = fetch('http://localhost:8888/v1/websearch', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ query: query })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.task_id) {
-                    return pollWebsearchStatus(data.task_id);
-                } else {
-                    throw new Error("No task ID returned");
+            // Start paper scrape if selected
+            if (useScrape) {
+                scrapePromise = fetch('http://localhost:8888/v1/scrape', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: query })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    paperData = data;
+                    results.papers = data;
+                    updateResults(results, resultDiv);
+                    
+                    // Mark scrape as completed
+                    scrapeCompleted = true;
+                    checkTimerCompletion(useScrape, useWebsearch);
+                    
+                    return data;
+                });
+            } else {
+                // If scrape not selected, mark it as completed
+                scrapeCompleted = true;
+            }
+            
+            // Start websearch if selected
+            if (useWebsearch) {
+                websearchPromise = fetch('http://localhost:8888/v1/websearch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: query })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.task_id) {
+                        results.websearch = "Loading web search results...";
+                        updateResults(results, resultDiv);
+                        return pollWebsearchStatus(data.task_id);
+                    } else {
+                        throw new Error("No task ID returned");
+                    }
+                })
+                .then(data => {
+                    results.websearch = data.results;
+                    updateResults(results, resultDiv);
+                    
+                    // Mark websearch as completed
+                    websearchCompleted = true;
+                    checkTimerCompletion(useScrape, useWebsearch);
+                    
+                    return data;
+                });
+            } else {
+                // If websearch not selected, mark it as completed
+                websearchCompleted = true;
+            }
+            
+            // When scrape is done, show process button if we have paper data
+            scrapePromise.then(data => {
+                if (data) {
+                    processBtn.style.display = 'block';
                 }
             });
             
-            // Execute scrape immediately, start polling for websearch
-            scrapePromise
-                .then(scrapeData => {
-                    paperData = scrapeData;
-                    
-                    // Show paper results immediately
-                    resultDiv.textContent = JSON.stringify({
-                        papers: scrapeData,
-                        websearch: "Loading web search results..."
-                    }, null, 2);
-                    
-                    // Enable process button for papers
-                    processBtn.style.display = 'block';
-                    
-                    // Continue with websearch polling
-                    return websearchPromise;
-                })
-                .then(websearchData => {
-                    // Update results with websearch data when available
-                    const combinedResults = {
-                        papers: paperData,
-                        websearch: websearchData.results
-                    };
-                    
-                    resultDiv.textContent = JSON.stringify(combinedResults, null, 2);
-                })
+            // Handle any errors
+            Promise.all([scrapePromise, websearchPromise])
                 .catch(error => {
-                    resultDiv.textContent = 'Error: ' + error.message;
+                    console.error("Error during search:", error);
+                    resultDiv.textContent += '\nError: ' + error.message;
+                    
+                    // Stop the timer on error
+                    stopTimer();
                 });
+                
+            // Check timer completion immediately (in case both are already marked as completed)
+            checkTimerCompletion(useScrape, useWebsearch);
+        }
+        
+        // Helper function to update results display
+        function updateResults(results, resultDiv) {
+            resultDiv.textContent = JSON.stringify(results, null, 2);
         }
         
         // Function to poll websearch status

@@ -30,10 +30,38 @@
 
 import requests
 import json
+import time
 
+# Make the initial request
 url = "http://localhost:8888/v1/websearch"
 payload = {"query": "legal natural language processing"}
 headers = {"Content-Type": "application/json"}
 
 response = requests.post(url, json=payload, headers=headers)
-print(json.dumps(response.json(), indent=2))
+initial_response = response.json()
+print(json.dumps(initial_response, indent=2))
+
+# Check if we got a task_id
+if "task_id" in initial_response:
+    task_id = initial_response["task_id"]
+    
+    # Poll for results
+    print("\nPolling for results...")
+    status_url = f"http://localhost:8888/v1/websearch/status/{task_id}"
+    
+    while True:
+        status_response = requests.get(status_url).json()
+        
+        if status_response["status"] == "completed":
+            print("\nSearch completed!")
+            print(json.dumps(status_response, indent=2))
+            break
+        elif status_response["status"] == "failed":
+            print("\nSearch failed!")
+            print(json.dumps(status_response, indent=2))
+            break
+        else:
+            print(".", end="", flush=True)
+            time.sleep(2)  # Wait 2 seconds before checking again
+else:
+    print("Error: No task_id in response")
