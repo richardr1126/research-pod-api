@@ -11,6 +11,8 @@ pymupdf4llm
 langchain-openai
 langchain-core
 langchain-ollama
+langchain-google-genai
+langchain-anthropic
 langgraph
 typing-extensions
 pydantic

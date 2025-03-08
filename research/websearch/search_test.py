@@ -1,29 +1,39 @@
-import os
-import time
-from dotenv import load_dotenv
-from graph import graph
+# import os
+# import time
+# from dotenv import load_dotenv
+# from graph import graph
 
 # Start timing
-start_time = time.time()
+# start_time = time.time()
 
-# Load environment variables from .env file
-load_dotenv()
+# # Load environment variables from .env file
+# load_dotenv()
 
-# Debug: Print environment variables
-print(f"DEEPSEEK_API_KEY exists: {os.getenv('DEEPSEEK_API_KEY') is not None}")
+# # Debug: Print environment variables
+# print(f"DEEPSEEK_API_KEY exists: {os.getenv('DEEPSEEK_API_KEY') is not None}")
 
-query = "Research the history of Boulder, Colorado."
+# query = "Research the history of Boulder, Colorado."
 
-input_data = {
-    "research_topic": query
-}
+# input_data = {
+#     "research_topic": query
+# }
 
-result = graph.invoke(input_data)
-print("\n\n" + result['running_summary'])
-print("\n\n\n")
-print(result['sources_gathered'])
+# result = graph.invoke(input_data)
+# print("\n\n" + result['running_summary'])
+# print("\n\n\n")
+# print(result['sources_gathered'])
 
-# Calculate and print elapsed time
-end_time = time.time()
-elapsed_time = end_time - start_time
-print(f"\nTotal execution time: {elapsed_time:.2f} seconds")
+# # Calculate and print elapsed time
+# end_time = time.time()
+# elapsed_time = end_time - start_time
+# print(f"\nTotal execution time: {elapsed_time:.2f} seconds")
+
+import requests
+import json
+
+url = "http://localhost:8888/v1/websearch"
+payload = {"query": "legal natural language processing"}
+headers = {"Content-Type": "application/json"}
+
+response = requests.post(url, json=payload, headers=headers)
+print(json.dumps(response.json(), indent=2))

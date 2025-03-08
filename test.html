@@ -190,7 +190,7 @@
             summaryDiv.innerHTML = 'Summary will appear here after processing';
             processBtn.style.display = 'none';
             
-            // Create promises for both API calls
+            // Create promise for scrape API call
             const scrapePromise = fetch('http://localhost:8888/v1/scrape', {
                 method: 'POST',
                 headers: {
@@ -199,31 +199,76 @@
                 body: JSON.stringify({ query: query })
             }).then(response => response.json());
             
+            // Start websearch as async task
             const websearchPromise = fetch('http://localhost:8888/v1/websearch', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ query: query })
-            }).then(response => response.json());
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.task_id) {
+                    return pollWebsearchStatus(data.task_id);
+                } else {
+                    throw new Error("No task ID returned");
+                }
+            });
             
-            // Execute both promises in parallel
-            Promise.all([scrapePromise, websearchPromise])
-                .then(([scrapeData, websearchData]) => {
+            // Execute scrape immediately, start polling for websearch
+            scrapePromise
+                .then(scrapeData => {
                     paperData = scrapeData;
                     
-                    // Combine results for display
-                    const combinedResults = {
+                    // Show paper results immediately
+                    resultDiv.textContent = JSON.stringify({
                         papers: scrapeData,
+                        websearch: "Loading web search results..."
+                    }, null, 2);
+                    
+                    // Enable process button for papers
+                    processBtn.style.display = 'block';
+                    
+                    // Continue with websearch polling
+                    return websearchPromise;
+                })
+                .then(websearchData => {
+                    // Update results with websearch data when available
+                    const combinedResults = {
+                        papers: paperData,
                         websearch: websearchData.results
                     };
                     
                     resultDiv.textContent = JSON.stringify(combinedResults, null, 2);
-                    processBtn.style.display = 'block';
                 })
                 .catch(error => {
                     resultDiv.textContent = 'Error: ' + error.message;
                 });
+        }
+        
+        // Function to poll websearch status
+        function pollWebsearchStatus(taskId) {
+            return new Promise((resolve, reject) => {
+                const checkStatus = () => {
+                    fetch(`http://localhost:8888/v1/websearch/status/${taskId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'completed') {
+                                resolve(data);
+                            } else if (data.status === 'failed') {
+                                reject(new Error(data.error || "Websearch failed"));
+                            } else {
+                                // Still running, check again in 2 seconds
+                                setTimeout(checkStatus, 2000);
+                            }
+                        })
+                        .catch(error => reject(error));
+                };
+                
+                // Start polling
+                checkStatus();
+            });
         }
         
         function processPapers() {

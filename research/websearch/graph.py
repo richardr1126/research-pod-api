@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field
 from langchain_ollama import ChatOllama
 from langgraph.graph import START, END, StateGraph
 
-from configuration import Configuration, SearchAPI
-from utils import deduplicate_and_format_sources, tavily_search, format_sources, perplexity_search, duckduckgo_search, get_llm
-from state import SummaryState, SummaryStateInput, SummaryStateOutput
-from prompts import query_writer_instructions, summarizer_instructions, reflection_instructions, podcast_script_instructions
+from research.websearch.configuration import Configuration, SearchAPI
+from research.websearch.utils import deduplicate_and_format_sources, tavily_search, format_sources, perplexity_search, duckduckgo_search, get_llm
+from research.websearch.state import SummaryState, SummaryStateInput, SummaryStateOutput
+from research.websearch.prompts import query_writer_instructions, summarizer_instructions, reflection_instructions, podcast_script_instructions
 
 # Nodes
 def generate_query(state: SummaryState, config: RunnableConfig):
