@@ -88,20 +88,41 @@
         .markdown-content li {
             margin-bottom: 5px;
         }
+        .status-indicator {
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .status-online {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-offline {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
     </style>
 </head>
 <body>
     <h1>Research Pod</h1>
     
+    <div id="service-status" class="status-indicator status-offline">
+        Checking service status...
+    </div>
+    
     <div class="search-container">
         <label for="query">Search Query:</label>
         <input type="text" id="query" value="legal natural language processing">
-        <button onclick="makeRequest()">Search Papers</button>
+        <button id="search-btn" onclick="makeRequest()" disabled>Search Papers</button>
     </div>
     
     <div class="container">
         <div class="left-panel">
-            <div class="panel-header">Paper Results</div>
+            <div class="panel-header">Search Results</div>
             <div class="panel-content">
                 <pre id="result">Results will appear here</pre>
             </div>
@@ -117,12 +138,47 @@
 
     <script>
         let paperData = null;
+        let websearchData = null;
         
         // Configure marked options
         marked.setOptions({
             breaks: true,  // Convert line breaks to <br>
             gfm: true      // Enable GitHub Flavored Markdown
         });
+        
+        // Check if the service is running when the page loads
+        document.addEventListener('DOMContentLoaded', checkServiceStatus);
+        
+        function checkServiceStatus() {
+            const statusDiv = document.getElementById('service-status');
+            const searchBtn = document.getElementById('search-btn');
+            
+            statusDiv.className = 'status-indicator status-offline';
+            statusDiv.textContent = 'Checking service status...';
+            
+            fetch('http://localhost:8888/v1/health', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Service is offline');
+                }
+                return response.json();
+            })
+            .then(data => {
+                statusDiv.className = 'status-indicator status-online';
+                statusDiv.textContent = 'Service is online';
+                searchBtn.disabled = false;
+            })
+            .catch(error => {
+                statusDiv.className = 'status-indicator status-offline';
+                statusDiv.textContent = 'Service is offline - Please start Docker';
+                searchBtn.disabled = true;
+            });
+        }
         
         function makeRequest() {
             const query = document.getElementById('query').value;
@@ -134,22 +190,40 @@
             summaryDiv.innerHTML = 'Summary will appear here after processing';
             processBtn.style.display = 'none';
             
-            fetch('http://localhost:8888/v1/scrape', {
+            // Create promises for both API calls
+            const scrapePromise = fetch('http://localhost:8888/v1/scrape', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ query: query })
-            })
-            .then(response => response.json())
-            .then(data => {
-                paperData = data;
-                resultDiv.textContent = JSON.stringify(data, null, 2);
-                processBtn.style.display = 'block';
-            })
-            .catch(error => {
-                resultDiv.textContent = 'Error: ' + error.message;
-            });
+            }).then(response => response.json());
+            
+            const websearchPromise = fetch('http://localhost:8888/v1/websearch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            }).then(response => response.json());
+            
+            // Execute both promises in parallel
+            Promise.all([scrapePromise, websearchPromise])
+                .then(([scrapeData, websearchData]) => {
+                    paperData = scrapeData;
+                    
+                    // Combine results for display
+                    const combinedResults = {
+                        papers: scrapeData,
+                        websearch: websearchData.results
+                    };
+                    
+                    resultDiv.textContent = JSON.stringify(combinedResults, null, 2);
+                    processBtn.style.display = 'block';
+                })
+                .catch(error => {
+                    resultDiv.textContent = 'Error: ' + error.message;
+                });
         }
         
         function processPapers() {

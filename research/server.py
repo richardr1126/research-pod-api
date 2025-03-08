@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from research.scraper.scrape import scrape_arxiv
 from research.processor.summarize import process_papers
+from research.websearch.search import websearch
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +33,24 @@ def scrape():
         results = scrape_arxiv(body['query'], max_papers=3)
         
         return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+# Websearch endpoint
+@server.route('/v1/websearch', methods=['POST'])
+def web_search_endpoint():
+    try:
+        body = request.get_json()
+        if not body:
+            return jsonify({"error": "Missing data in request body"}), 400
+            
+        if 'query' not in body:
+            return jsonify({"error": "Missing 'query' in request body"}), 400
+            
+        results = websearch(body['query'])
+        
+        # Return results as a dictionary
+        return jsonify({"results": results})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
