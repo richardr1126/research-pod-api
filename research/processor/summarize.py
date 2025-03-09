@@ -18,12 +18,21 @@ def process_papers(papers_data):
     try:
         client = setup_client()
         
+        arxiv_papers = papers_data['papers']
+        web_results = papers_data['websearch']
+
         # Extract titles and abstracts for the prompt
         papers_info = []
-        for i, paper in enumerate(papers_data, 1):
+        for i, paper in enumerate(arxiv_papers, 1):
             papers_info.append(f"Paper {i}:\nTitle: {paper.get('title', 'N/A')}\nAbstract: {paper.get('abstract', 'N/A')}")
         
         papers_text = "\n\n".join(papers_info)
+
+
+        # Create websearch text
+        websearch_text = ""
+        for i, content in enumerate(web_results, 1):
+            websearch_text += f"Web Search Result {i}:\n{content}\n\n"
         
         # Define the function schema for summarization
         tools = [
@@ -65,17 +74,23 @@ def process_papers(papers_data):
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful research assistant that summarizes academic papers."
+                "content": "You are a helpful research assistant that summarizes academic papers and web search results. Your goal is to synthesize information from both academic and web sources into a coherent summary."
             },
             {
-                "role": "user",
-                "content": f"""I have collected the following research papers:
-                
-{papers_text}
+                "role": "user", 
+                "content": f"""I have collected the following research papers and web search results:
 
-Please analyze these papers and provide:
-1. A concise summary of the main themes
-2. Key findings or methodologies mentioned
+<Academic Papers>
+{papers_text}
+</Academic Papers>
+
+<Web Search Results>
+{websearch_text}
+</Web Search Results>
+
+Please analyze these sources and provide:
+1. A concise summary of the main themes across both academic and web sources
+2. Key findings or methodologies mentioned in the papers and web results
 3. Potential applications or implications of this research
 
 Format your response in markdown."""
@@ -83,7 +98,8 @@ Format your response in markdown."""
         ]
         
         # Send the request using the function from nlp.py
-        message = send_messages(client, messages, tools)
+        # message = send_messages(client, messages, tools)
+        message = send_messages(client, messages)
         
         # Parse the response
         try:

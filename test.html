@@ -379,15 +379,13 @@
                 websearchCompleted = true;
             }
             
-            // When scrape is done, show process button if we have paper data
-            scrapePromise.then(data => {
-                if (data) {
-                    processBtn.style.display = 'block';
-                }
-            });
-            
-            // Handle any errors
+            // When either scrape or websearch is done, show process button
             Promise.all([scrapePromise, websearchPromise])
+                .then(([scrapeData, websearchData]) => {
+                    if (scrapeData || websearchData) {
+                        processBtn.style.display = 'block';
+                    }
+                })
                 .catch(error => {
                     console.error("Error during search:", error);
                     resultDiv.textContent += '\nError: ' + error.message;
@@ -417,12 +415,18 @@
             summaryDiv.innerHTML = '<p class="loading">Generating summary...</p>';
             processBtn.disabled = true;
             
+            // Create a combined data object with both papers and websearch results
+            const combinedData = {
+                papers: paperData,
+                websearch: websearchData ? websearchData.results : []
+            };
+            
             fetch('http://localhost:8888/v1/process', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ papers: paperData })
+                body: JSON.stringify(combinedData)
             })
             .then(response => {
                 if (!response.ok) {

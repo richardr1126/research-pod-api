@@ -136,7 +136,8 @@ def process():
         if 'papers' not in body:
             return jsonify({"error": "Missing 'papers' in request body"}), 400
             
-        summary = process_papers(body['papers'])
+        # summary = process_papers(body['papers'])
+        summary = process_papers(body)
         
         return jsonify({"summary": summary})
     except Exception as e:
