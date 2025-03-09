@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from research.scraper.scrape import scrape_arxiv
 from research.processor.summarize import process_papers
 from research.websearch.search import websearch
-
+from research.websearch2.search import websearch_2
 # Load environment variables
 load_dotenv()
 
@@ -141,3 +141,16 @@ def process():
         return jsonify({"summary": summary})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+
+# Endpoint for websearch2
+@server.route('/v1/websearch2', methods=['POST'])
+def websearch2():
+    body = request.get_json()
+    if not body:
+        return jsonify({"error": "Missing data in request body"}), 400
+    
+    query = body['query']
+    results = websearch_2(query)
+    
+    return jsonify({"results": results})

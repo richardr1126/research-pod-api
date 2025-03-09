@@ -1,7 +1,7 @@
 from research.websearch.graph import graph
 
 
-def websearch(query):
+def websearch_2(query):
     try:
         input_data = {
             "research_topic": query

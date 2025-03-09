@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field
 from langchain_ollama import ChatOllama
 from langgraph.graph import START, END, StateGraph
 
-from research.websearch.configuration import Configuration, SearchAPI
-from research.websearch.utils import deduplicate_and_format_sources, tavily_search, format_sources, perplexity_search, duckduckgo_search, get_llm
-from research.websearch.state import SummaryState, SummaryStateInput, SummaryStateOutput
-from research.websearch.prompts import query_writer_instructions, summarizer_instructions, reflection_instructions, podcast_script_instructions
+from research.websearch2.configuration import Configuration, SearchAPI
+from research.websearch2.utils import deduplicate_and_format_sources, tavily_search, format_sources, perplexity_search, duckduckgo_search, get_llm
+from research.websearch2.state import SummaryState, SummaryStateInput, SummaryStateOutput
+from research.websearch2.prompts import query_writer_instructions, summarizer_instructions, reflection_instructions, podcast_script_instructions
 
 # Nodes
 def generate_query(state: SummaryState, config: RunnableConfig):
@@ -77,7 +77,11 @@ def web_research(state: SummaryState, config: RunnableConfig):
     else:
         raise ValueError(f"Unsupported search API: {configurable.search_api}")
 
-    return {"sources_gathered": [format_sources(search_results)], "research_loop_count": state.research_loop_count + 1, "web_research_results": [search_str]}
+    # Add the formatted search results to web_research_results
+    state.web_research_results.append(search_str)
+    
+    # Return the search results dictionary
+    return {"sources_gathered": search_results}
 
 def summarize_sources(state: SummaryState, config: RunnableConfig):
     """ Summarize the gathered sources """
@@ -169,52 +173,6 @@ def finalize_summary(state: SummaryState):
     state.running_summary = f"## Summary\n\n{state.running_summary}\n\n ### Sources:\n{all_sources}"
     return {"running_summary": state.running_summary}
 
-def generate_podcast_script(state: SummaryState, config: RunnableConfig):
-#     """ Generate a podcast script from the summary """
-    
-#     # Print debug information about state
-#     # print(f"State type: {type(state)}")
-#     # print(f"State attributes: {dir(state)}")
-    
-#     # Safely get research_topic and running_summary
-#     research_topic = getattr(state, 'research_topic', "unknown topic")
-#     summary = getattr(state, 'running_summary', "No research summary was available.")
-
-#     # The summary contains the sources as well, so we need to remove them
-#     summary = summary.split("### Sources:")[0].strip()
-    
-#     # print(f"Using research_topic: {research_topic}")
-#     # print(f"Using summary: {summary[:100]}...")
-    
-#     # Generate a script
-#     configurable = Configuration.from_runnable_config(config)
-    
-#     # Use the safely retrieved values
-#     llm = get_llm("ollama",
-#                   base_url=configurable.ollama_base_url,
-#                   model=configurable.local_llm,
-#                   temperature=0,
-#                   format="json")
-#     # llm = get_llm("openai",
-#     #               model="gpt-4o-mini",
-#     #               temperature=1)
-    
-#     # First try with JSON format specified
-#     prompt_system = podcast_script_instructions.format(research_topic=research_topic)
-#     prompt_human = f"Here is the summary to convert into a podcast script: {summary}"
-    
-#     result = llm.invoke([
-#         SystemMessage(content=prompt_system),
-#         HumanMessage(content=prompt_human)
-#     ])
-    
-#     script = json.loads(result.content)
-#     podcast_script = script.get('podcast_script', "Error: podcast_script key not found")
-
-
-#     return {"podcast_script": podcast_script}
-      return
-
 def debug_state(state: SummaryState):
     """ Debug the current state """
     print(f"DEBUG STATE: {vars(state)}")
@@ -234,19 +192,19 @@ def route_research(state: SummaryState, config: RunnableConfig) -> Literal["fina
 builder = StateGraph(SummaryState, input=SummaryStateInput, output=SummaryStateOutput, config_schema=Configuration)
 builder.add_node("generate_query", generate_query)
 builder.add_node("web_research", web_research)
-builder.add_node("summarize_sources", summarize_sources)
-builder.add_node("reflect_on_summary", reflect_on_summary)
-builder.add_node("finalize_summary", finalize_summary)
+# builder.add_node("summarize_sources", summarize_sources)
+# builder.add_node("reflect_on_summary", reflect_on_summary)
+# builder.add_node("finalize_summary", finalize_summary)
 # builder.add_node("generate_podcast_script", generate_podcast_script)
-builder.add_node("debug_state", debug_state)
+# builder.add_node("debug_state", debug_state)
 
 # Add edges
 builder.add_edge(START, "generate_query")
 builder.add_edge("generate_query", "web_research")
-builder.add_edge("web_research", "summarize_sources")
-builder.add_edge("summarize_sources", "reflect_on_summary")
-builder.add_conditional_edges("reflect_on_summary", route_research)
+builder.add_edge("web_research", END)
+# builder.add_edge("summarize_sources", "reflect_on_summary")
+# builder.add_conditional_edges("reflect_on_summary", route_research)
 # builder.add_edge("finalize_summary", "generate_podcast_script")
-builder.add_edge("finalize_summary", END)
+# builder.add_edge("finalize_summary", END)
 
 graph = builder.compile()
