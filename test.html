@@ -353,9 +353,9 @@
                 scrapeCompleted = true;
             }
             
-            // Start websearch if selected
+            // Start websearch if selected - now using websearch2 endpoint
             if (useWebsearch) {
-                websearchPromise = fetch('http://localhost:8888/v1/websearch', {
+                websearchPromise = fetch('http://localhost:8888/v1/websearch2', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -364,15 +364,7 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.task_id) {
-                        results.websearch = "Loading web search results...";
-                        updateResults(results, resultDiv);
-                        return pollWebsearchStatus(data.task_id);
-                    } else {
-                        throw new Error("No task ID returned");
-                    }
-                })
-                .then(data => {
+                    websearchData = data;
                     results.websearch = data.results;
                     updateResults(results, resultDiv);
                     
@@ -411,30 +403,6 @@
         // Helper function to update results display
         function updateResults(results, resultDiv) {
             resultDiv.textContent = JSON.stringify(results, null, 2);
-        }
-        
-        // Function to poll websearch status
-        function pollWebsearchStatus(taskId) {
-            return new Promise((resolve, reject) => {
-                const checkStatus = () => {
-                    fetch(`http://localhost:8888/v1/websearch/status/${taskId}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'completed') {
-                                resolve(data);
-                            } else if (data.status === 'failed') {
-                                reject(new Error(data.error || "Websearch failed"));
-                            } else {
-                                // Still running, check again in 2 seconds
-                                setTimeout(checkStatus, 2000);
-                            }
-                        })
-                        .catch(error => reject(error));
-                };
-                
-                // Start polling
-                checkStatus();
-            });
         }
         
         function processPapers() {

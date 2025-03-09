@@ -1,4 +1,4 @@
-from research.websearch.graph import graph
+from research.websearch2.graph import graph
 
 
 def websearch_2(query):
@@ -9,7 +9,7 @@ def websearch_2(query):
         print("Executing graph...")
         result = graph.invoke(input_data)
         print("Graph executed successfully.")
-        return result['running_summary']
+        return result['sources_gathered']['results']
     except Exception as e:
         print(f"Error during web search: {e}")
         return None
