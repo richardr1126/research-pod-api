@@ -18,3 +18,5 @@ ENV FLASK_ENV=development \
 
 # Run with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "server:server"]
+# gunicorn --bind 0.0.0.0:8080 --workers 1 server:server
+# flask run --port 8888

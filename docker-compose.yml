@@ -47,8 +47,6 @@ services:
     build: 
       context: ./web/
       dockerfile: Dockerfile
-    volumes:
-      - ./web:/app
     ports:
       - "8888:8080"
     environment:
@@ -56,9 +54,9 @@ services:
       - FLASK_APP=server:server
       - FLASK_ENV=development
       - FLASK_DEBUG=1
-    depends_on:
-      kafka:
-        condition: service_healthy
+    # depends_on:
+    #   kafka:
+    #     condition: service_healthy
 
   research-consumer:
     build: 

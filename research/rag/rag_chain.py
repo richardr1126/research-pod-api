@@ -45,7 +45,7 @@ def _format_docs(docs: List[Any]) -> str:
 # Build the RAG chain
 chain = (
     {
-        "context": vector_store.vectorstore.as_retriever() | _format_docs,
+        "context": vector_store.milvus.as_retriever() | _format_docs,
         "question": RunnablePassthrough()
     }
     | prompt
@@ -79,7 +79,7 @@ def add_papers(papers: List[Dict[str, Any]], job_id: str = None):
         )
         
         # Add chunks to vector store
-        vector_store.vectorstore.add_documents(chunks)
+        vector_store.milvus.add_documents(chunks)
 
 def query(question: str) -> str:
     """

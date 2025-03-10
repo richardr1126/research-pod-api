@@ -1,0 +1,75 @@
+# helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
+#   --set auth.clientProtocol=PLAINTEXT \
+#   --set auth.interbrokerProtocol=PLAINTEXT \
+#   --set listeners.client.protocol=PLAINTEXT \
+#   --set listeners.controller.protocol=PLAINTEXT \
+#   --set listeners.interbroker.protocol=PLAINTEXT \
+#   --set listeners.external.protocol=PLAINTEXT \
+#   --set externalAccess.enabled=true \
+#   --set externalAccess.broker.service.type=LoadBalancer \
+#   --set externalAccess.controller.service.type=LoadBalancer \
+#   --set externalAccess.broker.service.ports.external=9094 \
+#   --set externalAccess.controller.service.containerPorts.external=9094 \
+#   --set externalAccess.autoDiscovery.enabled=true \
+#   --set serviceAccount.create=true \
+#   --set rbac.create=true \
+#   --set controller.automountServiceAccountToken=true \
+#   --set broker.automountServiceAccountToken=true \
+#   --wait
+
+replicaCount: 1
+
+kraft:
+  enabled: true
+
+controller:
+  replicaCount: 3
+  automountServiceAccountToken: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+broker: # Using controller broker nodes instead of separate broker nodes
+  automountServiceAccountToken: true
+
+listeners:
+  client:
+    protocol: PLAINTEXT
+    name: CLIENT
+  controller:
+    protocol: PLAINTEXT
+  interbroker:
+    protocol: PLAINTEXT
+  external:
+    protocol: PLAINTEXT
+    name: EXTERNAL
+
+externalAccess:
+  enabled: true
+  broker:
+    service:
+      type: LoadBalancer
+      ports:
+        external: 9094
+  controller:
+    service:
+      type: LoadBalancer
+      containerPorts:
+        external: 9094
+  autoDiscovery:
+    enabled: true
+
+# For prometheus metrics
+# metrics:
+#   jmx:
+#     enabled: true
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true

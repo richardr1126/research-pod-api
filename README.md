@@ -1,29 +1,33 @@
 # Research Pod API
 
-A distributed research analysis system that uses RAG (Retrieval-Augmented Generation) to process academic papers and provide intelligent insights.
+Our team's distributed research analysis system. The system uses RAG (Retrieval-Augmented Generation) to process academic papers from arXiv and provide AI-powered insights. This document explains how everything works and how to get it running.
 
-## Features
+## What This Does right now
 
-### Core Capabilities
-- **Paper Analysis**: Automated arXiv paper scraping and processing
-- **RAG Pipeline**: Combines LangChain, DeepSeek Chat, and Milvus Lite for intelligent analysis
-- **Distributed Processing**: Kafka-based message queue for scalable operation
-- **Multi-Architecture Support**: AMD64 and ARM64 support via Docker buildx
-- **Vector Search**: Milvus Lite for efficient similarity search
-- **Flexible Deployment**: Local development (Docker Compose), Minikube, or AKS deployment
+This system helps us analyze research papers by:
+1. Taking a research query from the user
+2. Finding relevant papers on arXiv
+3. Processing them through our AI pipeline
+4. Returning insights and summaries
 
-### Technical Highlights
-- **LLM Integration**: DeepSeek Chat for text generation, OpenAI for embeddings
-- **Async Processing**: Event-driven architecture with Kafka
-- **PDF Processing**: Advanced PDF to markdown conversion with pymupdf4llm
-- **Kubernetes Ready**: Production-grade deployment configurations
-- **Infrastructure as Code**: Terraform for AKS provisioning
+### Key Components
+- **Paper Processing**: Automatically scrapes arXiv papers and converts them to a format our AI can understand
+- **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat and vector search
+- **Message Queue**: Uses Kafka to handle multiple papers at once without overloading
+- **Vector Search**: Uses Milvus Lite to store and find similar content
+- **Deployment Options**: Can run locally or on our Kubernetes cluster
 
-## System Architecture
+### Technical Stack
+- **AI Models**: DeepSeek Chat for generating text, OpenAI for creating embeddings
+- **Architecture**: Event-driven with Kafka for reliability
+- **PDF Handling**: Uses pymupdf4llm for converting PDFs to clean text
+- **Infrastructure**: Kubernetes configs for our development and future production setup
+
+## How It Works
 
 ```mermaid
 graph TD
-    A[Client] --> B[Web API]
+    A[User Request] --> B[Web API]
     B --> C[Kafka Queue]
     C --> D[Research Consumer]
     D --> E[Vector Store]
@@ -33,34 +37,34 @@ graph TD
     G --> B
 ```
 
-### Components
+### Main Parts
 1. **Web API**
-   - RESTful endpoints
-   - Async job management
-   - Request validation
+   - Takes requests from our frontend
+   - Manages async jobs (since paper processing takes time)
+   - Validates input to prevent garbage requests
 
 2. **Research Consumer**
-   - Paper scraping and processing
-   - RAG-based analysis
-   - Vector storage management
+   - Does the heavy lifting of paper processing
+   - Runs our RAG pipeline
+   - Manages the vector database
 
-3. **Message Queue**
-   - Kafka for reliable messaging
-   - Topic-based routing
-   - Error handling queue
+3. **Message System**
+   - Uses Kafka to handle multiple requests
+   - Keeps track of which papers are being processed
+   - Has error handling for when things go wrong
 
-## Quick Start
+## Getting Started
 
-### Local Development with Docker Compose
+### Option 1: Local Setup (Easiest)
 
-1. Clone and setup:
+1. Get the code and set up env:
 ```bash
 git clone https://github.com/richardr1126/research-pod-api.git
 cd research-pod-api
 cp research/template.env research/.env
 ```
 
-2. Configure environment:
+2. Add your API keys to .env (ask Richard for these if needed):
 ```env
 KAFKA_BOOTSTRAP_SERVERS=kafka:29092
 DEEPSEEK_API_KEY=your-key
@@ -69,125 +73,169 @@ AZURE_OPENAI_KEY=your-key
 AZURE_OPENAI_ENDPOINT=your-endpoint
 ```
 
-3. Start services:
+3. Start everything:
 ```bash
 docker compose up --build
 ```
 
-4. Access services:
-   - Web API: http://localhost:8888
-   - Kafka UI: http://localhost:8080
+4. Check it's working:
+   - API endpoint: http://localhost:8888
+   - Kafka monitoring: http://localhost:8080
 
-5. Test the API:
+5. Try it out:
 ```bash
 curl -X POST http://localhost:8888/v1/api/scrape \
   -H "Content-Type: application/json" \
   -d '{"query": "latest developments in quantum computing"}'
 ```
 
-### Kubernetes Deployment
+### Option 2: Minikube Setup (For K8s Testing)
 
-For Kubernetes deployment instructions, see [Kubernetes Deployment Guide](research/k8s/README.md)
+For detailed Kubernetes deployment instructions, see our [Kubernetes Setup Guide](k8s/README.md).
 
-Key differences in Kubernetes deployment:
-- Web API runs externally to the cluster
-- Kafka and Kafka UI are exposed via LoadBalancer services
-- Access URLs will depend on your LoadBalancer IP addresses
+Quick start with Minikube:
 
-## API Reference
+1. Prerequisites:
+   - Minikube installed
+   - kubectl configured
+   - Helm v3.x installed
+   - Docker with buildx support
+   - Python 3.12+
+
+2. Start Minikube:
+```bash
+minikube start
+```
+
+3. Run the setup:
+```bash
+cd k8s/helm
+chmod +x setup.sh
+./setup.sh
+```
+
+4. Required additional steps:
+   - Open a new terminal and run `minikube tunnel` (keep this running)
+   - Configure Docker to use Minikube's registry: `eval $(minikube docker-env)`
+   - Set up environment variables from template
+   - Start the web server
+
+**Important**: See [k8s/README.md](k8s/README.md) for:
+- Detailed setup instructions for Minikube, Azure, and Digital Ocean
+- Troubleshooting common issues
+- Instructions for monitoring and maintenance
+- Cleanup procedures
+
+### Option 3: Cloud Setup
+
+We support deployment to both Azure Kubernetes Service (AKS) and Digital Ocean Kubernetes. 
+
+For cloud deployment instructions, see:
+- Azure setup: Follow `azure.sh` instructions in [k8s/README.md](k8s/README.md#2-azure-kubernetes-service-aks)
+- Digital Ocean setup: Follow `digitalocean.sh` instructions in [k8s/README.md](k8s/README.md#3-digital-ocean-kubernetes)
+
+## API Details
 
 ### POST /v1/api/scrape
-Submit a research paper analysis request.
+This is how you request a paper analysis.
 
-Request:
+Send this:
 ```json
 {
-  "query": "string"  // Research topic or question
+  "query": "string"  // What you want to research
 }
 ```
 
-Response:
+You'll get back:
 ```json
 {
   "status": "success",
   "message": "Scrape request queued",
-  "job_id": "uuid-string"
+  "job_id": "uuid-string"  // Save this to check status later
 }
 ```
 
 ### GET /health
-System health check endpoint.
+Checks if everything's running ok.
 
-Response:
+Returns:
 ```json
 {
   "status": "healthy"
 }
 ```
 
-## Development
+## Development Setup
 
-### Prerequisites
-- Python 3.12+
-- Docker with buildx support
-- 4GB RAM minimum
-- Azure subscription (for cloud deployment)
+### What You Need
+- Python 3.12+ (3.11 won't work due to some dependencies)
+- Docker with buildx
+- At least 4GB RAM (8GB recommended)
+- Minikube if you want to test K8s stuff
+- Azure account (for later)
 
-### Project Structure
+### Project Layout
 ```
 research-pod-api/
-├── research/           # Research consumer service
-│   ├── consumer.py     # Kafka consumer
-│   ├── rag/           # RAG implementation
-│   └── scraper/       # Paper scraping
-├── web/               # Web API service
-│   └── server.py      # Flask application
-└── kubernetes/        # K8s configurations
+├── research/           # Does the AI/paper processing
+│   ├── consumer.py     # Handles Kafka messages
+│   ├── rag/           # Our RAG implementation
+│   └── scraper/       # Gets papers from arXiv
+├── web/               # The API service
+│   └── server.py      # Main Flask app
+├── k8s/               # Kubernetes stuff
+│   └── helm/          # Deployment configs
+└── docker-compose.yml # Local setup
 ```
 
-### Local Testing
+### How to Run It
+
+1. **Local Dev** (Docker Compose)
+   - Easiest way to test changes
+   - Everything runs in Docker
+   - Good for most development
+
+2. **Local K8s** (Minikube)
+   - Tests our Kubernetes setup
+   - More like how it'll run in production
+   - Use this before pushing to cloud
+
+3. **Cloud** (AKS)
+   - Our production setup (coming soon)
+   - Will be fully scalable
+   - Instructions coming soon
+
+### Testing Locally
 ```bash
-# Create virtual environment
+# Set up Python environment
 python -m venv venv
 source venv/bin/activate
 
-# Install dependencies
+# Install what you need
 pip install -r research/requirements.txt
 pip install -r web/requirements.txt
 ```
 
 ## Configuration
 
-### Environment Variables
+### Environment Variables You Need
 
-| Variable | Required | Description |
+| Variable | Required | What it's for |
 |----------|----------|-------------|
-| KAFKA_BOOTSTRAP_SERVERS | Yes | Kafka connection string |
-| DEEPSEEK_API_KEY | Yes | DeepSeek Chat API key |
-| OPENAI_API_KEY | Yes | OpenAI API key |
-| AZURE_OPENAI_KEY | Yes | Azure OpenAI key |
-| AZURE_OPENAI_ENDPOINT | Yes | Azure OpenAI endpoint |
+| KAFKA_BOOTSTRAP_SERVERS | Yes | How to connect to Kafka |
+| DEEPSEEK_API_KEY | Yes | For using DeepSeek Chat for text generation |
+| OPENAI_API_KEY | Yes | For text-embedding-3-large embeddings |
+| AZURE_OPENAI_KEY | No | Backup text generation service |
+| AZURE_OPENAI_ENDPOINT | No | Azure OpenAI API endpoint for backup |
 
-### Resource Requirements
+### System Requirements
 
-#### Minimum
-- CPU: 2 cores
-- Memory: 4GB
-- Storage: 30GB
+For development:
+- 2 CPU cores minimum
+- 4GB RAM minimum
+- 30GB storage
 
-#### Recommended
-- CPU: 4 cores
-- Memory: 8GB
-- Storage: 50GB
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+For better performance:
+- 4+ CPU cores
+- 8GB+ RAM
+- 50GB+ storage

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from scraper.scrape import scrape_arxiv
 from rag import rag_chain
 import logging
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +24,10 @@ consumer = KafkaConsumer( # Consumer for scrape requests
     value_deserializer=lambda m: json.loads(m.decode('utf-8')),
     auto_offset_reset='earliest',
     enable_auto_commit=True,
-    group_id='research-consumer-group'
+    group_id='research-consumer-group',
+    max_poll_interval_ms=600000,  # 10 minutes instead of default 5 minutes
+    max_poll_records=1,           # Process one record at a time
+    session_timeout_ms=60000      # 1 minute session timeout
 )
 
 producer = KafkaProducer( # Producer to return research results
@@ -52,8 +56,8 @@ def process_message(message):
         logger.info(f"Added papers to vector store for job {job_id}")
         
         # Generate a research summary using RAG (no filtering)
-        summary_question = f"Based on the recent papers about {query}, what are the key findings and developments in this area?"
-        summary = rag_chain.query(summary_question)
+        #summary_question = f"Based on the recent papers about {query}, what are the key findings and developments in this area?"
+        summary = rag_chain.query(query)
         
         # Prepare response with summary and job ID
         response = {
@@ -80,8 +84,21 @@ def process_message(message):
 def run():
     """Run the consumer loop."""
     logger.info("Research consumer started, waiting for messages...")
-    for message in consumer:
-        process_message(message)
+    while True:
+        try:
+            # Get messages one at a time with a timeout
+            message_batch = consumer.poll(timeout_ms=1000)
+            
+            for topic_partition, messages in message_batch.items():
+                for message in messages:
+                    process_message(message)
+                    # Commit offset after successful processing
+                    consumer.commit()
+                    
+        except Exception as e:
+            logger.error(f"Error in consumer loop: {str(e)}", exc_info=True)
+            # Sleep briefly before retrying
+            time.sleep(1)
 
 if __name__ == "__main__":
     run()

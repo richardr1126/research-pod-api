@@ -14,33 +14,13 @@ embeddings = OpenAIEmbeddings(
 )
 
 # Initialize Milvus Lite with local file storage
-vectorstore = Milvus(
+milvus = Milvus(
     auto_id=True,
     embedding_function=embeddings,
     connection_args={"uri": "./milvuslite.db"},  # Local file for Milvus Lite
     index_params={"index_type": "AUTOINDEX"},
     drop_old=True,
 )
-
-def similarity_search(query: str, k: int = 4, filter: dict = None) -> List[Any]:
-    """
-    Search for similar texts in the vector store.
-
-    Args:
-        query: Query text
-        k: Number of results to return
-        filter: Optional filter conditions
-
-    Returns:
-        List of similar documents with metadata
-    """
-    search_kwargs = {}
-    if filter:
-        search_kwargs["filter"] = filter
-
-    return vectorstore.similarity_search(
-        query=query, k=k, search_kwargs=search_kwargs
-    )
 
 def clear():
     """
@@ -49,7 +29,7 @@ def clear():
     """
     try:
         # Close the client connection first
-        vectorstore.client.close()
+        milvus.client.close()
         
         # Define the files to delete
         db_file = "./milvuslite.db"
