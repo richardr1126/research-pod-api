@@ -113,8 +113,14 @@ Note: For Minikube, LoadBalancer services need `minikube tunnel` running.
 ```bash
 # Get service URLs
 minikube service kafka-ui --url     # For Kafka UI
+```
 
-# Make sure the web server is running on localhost:8888
+2. Make sure the web server is running on localhost:8888 with correct KAFKA_BOOTSTRAP_SERVERS env var
+```bash
+cd ..
+docker compose up -f docker-compose.web.yml --build
+```
+> Note for Minikube you need to have the web server not running in Docker and running from your host machine python from localhost:8888. Then set KAFKA_BOOTSTRAP_SERVERS to 127.0.0.1:9094,127.0.0.1:9094,127.0.0.1:9094 (need `minikube tunnel` running)
 
 # Test API endpoint
 curl -X POST http://localhost:8888/v1/api/scrape \

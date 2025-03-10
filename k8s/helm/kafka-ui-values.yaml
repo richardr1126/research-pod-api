@@ -1,10 +1,10 @@
-resources:
-  limits:
-    cpu: 200m
-    memory: 512Mi
-  requests:
-    cpu: 200m
-    memory: 256Mi
+# resources:
+#   limits:
+#     cpu: 200m
+#     memory: 512Mi
+#   requests:
+#     cpu: 200m
+#     memory: 256Mi
 
 service:
   type: LoadBalancer

@@ -37,6 +37,22 @@ graph TD
     G --> B
 ```
 
+```mermaid
+sequenceDiagram
+    participant Web
+    participant Kafka
+    participant Workers
+    participant Redis
+    participant WS
+
+    Web->>Kafka: Produce job (1)
+    Kafka->>Workers: Consume job (2)
+    Workers->>Redis: SET job:123 "PROCESSING" (3)
+    Workers->>Kafka: Produce progress events (4)
+    Redis->>WS: PUBLISH job:123 "COMPLETED" (5)
+
+```
+
 ### Main Parts
 1. **Web API**
    - Takes requests from our frontend
@@ -214,6 +230,14 @@ source venv/bin/activate
 # Install what you need
 pip install -r research/requirements.txt
 pip install -r web/requirements.txt
+```
+
+#### Run the Web Server
+Start the web server with 3 workers (3 simultaneous connections during wait)
+
+```bash
+cd web
+gunicorn --bind 0.0.0.0:8888 --workers 3 server:server --log-level DEBUG
 ```
 
 ## Configuration
