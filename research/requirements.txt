@@ -18,3 +18,4 @@ typing-extensions
 pydantic
 duckduckgo-search
 tavily-python 
+crawl4ai 

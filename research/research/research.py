@@ -1,30 +1,79 @@
 # This script does the paper resseach and the web search
 from research.scraper.scrape import scrape_arxiv
+from research.websearch2.search import websearch_2
+import asyncio
+from crawl4ai import AsyncWebCrawler
+import os
 
-def research(query):
+
+async def crawl_url(url):
+    print("Starting web crawl...")
+    try:
+        # Add a timeout to the crawler
+        async with AsyncWebCrawler() as crawler:
+            # Set a timeout for the crawl operation
+            result = await asyncio.wait_for(
+                crawler.arun(
+                    url=url,
+                ),
+                timeout=60  # 60 second timeout
+            )
+            print("Page crawled successfully!")
+            
+            # Check if we got valid content
+            if not result or not hasattr(result, 'markdown') or not result.markdown:
+                print("Error: No valid content was retrieved from the webpage")
+                return
+                
+            return result.markdown
+            
+    except asyncio.TimeoutError:
+        print("Error: Web crawling operation timed out after 60 seconds")
+    except Exception as e:
+        print(f"Error during execution: {type(e).__name__}: {e}")
+
+
+
+
+
+async def research(query):
     """
-    This function does the paper research and the web search and returns all the text for our RAG
+    This function does the paper research and the web search and returns all the text and  for our RAG
 
     Args:
         query (str): The search query to process
     
     Returns:
-        list (str): List of strings containing all the text for our RAG
+        dict (str): Dictionary of strings containing all the text for our RAG
     """
-    rag_docs = []
-    
+    # Create dictionary for the text and the urls they come from
+    rag_docs = {}
     
     results = scrape_arxiv(query, max_papers=3)
 
     # Results returns as a list of dictionaries
     # Keys: "abstract", "authors", "date", "doi", "journal", "text", "title"
+
     for result in results:
-        rag_docs.append(result['text'])
+        # example of doi: 10.48550/arXiv.1910.13518
+        url = f"https://doi.org/{result['doi']}"
+        rag_docs[url] = result['text']
 
     # Web search
-    # web_results = websearch(query)
-    
+    web_results = websearch_2(query)
+
+    # Web results returns as a list of dictionaries
+    # Keys: "content", "raw_content", "title", "url"
+    # need to extract the urls and use crawler to get the text
+    for result in web_results:
+        url = result['url']
+
+        text = await crawl_url(url)
+        rag_docs[url] = text
     
     return rag_docs
+
+
+
 
 

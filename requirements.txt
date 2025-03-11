@@ -15,4 +15,5 @@ langgraph
 typing-extensions
 pydantic
 duckduckgo-search
-tavily-python 
+tavily-python
+crawl4ai 
