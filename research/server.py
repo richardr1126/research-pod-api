@@ -10,6 +10,8 @@ from research.scraper.scrape import scrape_arxiv
 from research.processor.summarize import process_papers
 from research.websearch.search import websearch
 from research.websearch2.search import websearch_2
+from research.research.research import research
+
 # Load environment variables
 load_dotenv()
 
@@ -137,7 +139,7 @@ def process():
             return jsonify({"error": "Missing 'papers' in request body"}), 400
             
         # summary = process_papers(body['papers'])
-        summary = process_papers(body)
+        summary = process_papers(body['papers'])
         
         return jsonify({"summary": summary})
     except Exception as e:
@@ -154,4 +156,15 @@ def websearch2():
     query = body['query']
     results = websearch_2(query)
     
+    return jsonify({"results": results})
+
+
+# Enpoint to do research
+@server.route('/v1/research', methods=['POST'])
+def research_endpoint():
+    body = request.get_json()
+    if not body:
+        return jsonify({"error": "Missing data in request body"}), 400
+    
+    results = research(body['query'])
     return jsonify({"results": results})

@@ -98,8 +98,8 @@ Format your response in markdown."""
         ]
         
         # Send the request using the function from nlp.py
-        # message = send_messages(client, messages, tools)
-        message = send_messages(client, messages)
+        message = send_messages(client, messages, tools)
+        # message = send_messages(client, messages)
         
         # Parse the response
         try:
