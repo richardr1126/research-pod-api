@@ -3,19 +3,16 @@ FROM python:slim
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.txt .
+COPY research/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install and setup crawl4ai with verbose output
+# Install and setup crawl4ai
 RUN pip install -U crawl4ai
 RUN crawl4ai-setup
 RUN crawl4ai-doctor
 
-# Uncomment this if you need pymupdf4llm with specific settings
-# RUN PYMUPDF_SETUP_PY_LIMITED_API=0 pip install -U pymupdf4llm
-
 # Copy application code
-COPY . .
+COPY research/ ./research/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -25,4 +22,4 @@ ENV FLASK_ENV=production
 EXPOSE 8080
 
 # Run using Gunicorn
-CMD gunicorn --bind "0.0.0.0:8080" --workers 1 "server:server" --log-level debug
+CMD gunicorn --bind "0.0.0.0:8080" --workers 1 "research.server:server" --log-level debug 

@@ -1,8 +1,8 @@
-# This script does the paper resseach and the web search
+# This script does the paper research and the web search
 from research.scraper.scrape import scrape_arxiv
 from research.websearch2.search import websearch_2
+from crawl4ai import *
 import asyncio
-from crawl4ai import AsyncWebCrawler
 import os
 
 
@@ -23,22 +23,22 @@ async def crawl_url(url):
             # Check if we got valid content
             if not result or not hasattr(result, 'markdown') or not result.markdown:
                 print("Error: No valid content was retrieved from the webpage")
-                return
+                return None
                 
             return result.markdown
             
     except asyncio.TimeoutError:
         print("Error: Web crawling operation timed out after 60 seconds")
+        return None
     except Exception as e:
         print(f"Error during execution: {type(e).__name__}: {e}")
+        return None
 
 
 
-
-
-async def research(query):
+async def research_async(query):
     """
-    This function does the paper research and the web search and returns all the text and  for our RAG
+    This function does the paper research and the web search and returns all the text for our RAG
 
     Args:
         query (str): The search query to process
@@ -62,16 +62,30 @@ async def research(query):
     # Web search
     web_results = websearch_2(query)
 
+
+    # Easy method
+    for result in web_results:
+        rag_docs[result['url']] = result['content']
+    #########################################################
+
     # Web results returns as a list of dictionaries
     # Keys: "content", "raw_content", "title", "url"
     # need to extract the urls and use crawler to get the text
-    for result in web_results:
-        url = result['url']
+    # for result in web_results:
+    #     url = result['url']
 
-        text = await crawl_url(url)
-        rag_docs[url] = text
+    #     text = await crawl_url(url)
+    #     if text:
+    #         rag_docs[url] = text
     
     return rag_docs
+
+
+def research(query):
+    """
+    Synchronous wrapper for the async research function
+    """
+    return asyncio.run(research_async(query))
 
 
 

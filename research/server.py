@@ -4,6 +4,7 @@ import os
 import threading
 import uuid
 import time
+import asyncio
 
 from dotenv import load_dotenv
 from research.scraper.scrape import scrape_arxiv
@@ -159,12 +160,13 @@ def websearch2():
     return jsonify({"results": results})
 
 
-# Enpoint to do research
+# Endpoint to do research
 @server.route('/v1/research', methods=['POST'])
 def research_endpoint():
     body = request.get_json()
     if not body:
         return jsonify({"error": "Missing data in request body"}), 400
     
+    # Call the synchronous wrapper function
     results = research(body['query'])
     return jsonify({"results": results})
