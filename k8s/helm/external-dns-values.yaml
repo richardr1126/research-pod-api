@@ -1,0 +1,13 @@
+provider: cloudflare
+
+# secret contains cloudflare_api_token
+cloudflare:
+  proxied: true
+  secretName: cloudflare-dns
+
+# digitalocean:
+#   apiToken: 
+  
+# digitalocean:
+#   apiTokenSecretName: digitalocean-dns
+#   apiTokenSecretKey: access-token

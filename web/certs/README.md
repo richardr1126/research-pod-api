@@ -1,0 +1,1 @@
+### Contact Richard to get Kafka https private keys/certificates for the web server

@@ -1,15 +1,17 @@
-# resources:
-#   limits:
-#     cpu: 200m
-#     memory: 512Mi
-#   requests:
-#     cpu: 200m
-#     memory: 256Mi
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  
 
 service:
   type: LoadBalancer
   port: 80
-  annotations: {}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "kafkaui.richardr.dev"
 
 yamlApplicationConfig:
   kafka:
@@ -18,7 +20,7 @@ yamlApplicationConfig:
         bootstrapServers: kafka.default.svc.cluster.local:9092
   auth:
     type: disabled
-  management:
-    health:
-      ldap:
-        enabled: false
+  # management:
+  #   health:
+  #     ldap:
+  #       enabled: false

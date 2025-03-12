@@ -1,6 +1,6 @@
 # Kubernetes Setup Guide
 
-This guide explains how to deploy our research pod system using either Minikube (for local testing) or cloud providers (Azure/DigitalOcean). 
+This guide explains how to deploy our research pod system using cloud providers (Azure/DigitalOcean). For local testing, we use Docker Compose.
 
 ## Prerequisites
 
@@ -8,51 +8,32 @@ This guide explains how to deploy our research pod system using either Minikube 
 - Helm v3.x installed
 - Docker with buildx support
 - Python 3.12+
-- One of the following:
-  - Minikube for local testing
+- One of the following for cloud deployment:
   - Azure CLI for AKS deployment
   - Digital Ocean CLI (doctl) for DO deployment
 
-## Important Note About Minikube and LoadBalancer Services
-
-⚠️ **WARNING**: Minikube has known issues with LoadBalancer services. Services of type LoadBalancer won't automatically receive external IPs in Minikube unless you:
-1. Run `minikube tunnel` in a separate terminal window
-2. Keep the tunnel running for the entire duration of your testing
-3. Use sudo password when prompted
-
-Without the tunnel running, LoadBalancer services will remain in "pending" state and won't be accessible externally.
-
 ## Setup Options
 
-### 1. Local Testing with Minikube
+### 1. Local Testing with Docker Compose
 
-1. Start Minikube:
-```bash
-minikube start
-```
+The simplest way to test locally is using Docker Compose:
 
-2. **IMPORTANT**: Open a new terminal and run:
-```bash
-minikube tunnel
-```
-Keep this terminal open - it's required for LoadBalancer services to work.
-
-3. Configure Docker to use Minikube's registry:
-```bash
-eval $(minikube docker-env)
-```
-
-4. Set up environment variables:
+1. Set up environment variables:
 ```bash
 cp ../research/template.env ../research/.env
 ```
 Edit `.env` and add your API keys (contact team lead for access).
 
-5. Run the setup script:
+2. Start the services:
 ```bash
-cd helm
-chmod +x setup.sh
-./setup.sh
+docker compose up -f docker-compose.web.yml --build
+```
+
+3. Test the API endpoint:
+```bash
+curl -X POST http://localhost:8888/v1/api/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"query": "quantum computing advances"}'
 ```
 
 ### 2. Azure Kubernetes Service (AKS)
@@ -92,7 +73,7 @@ This script will:
 
 ## Verify Your Setup
 
-After running any of the setup options above:
+After running any of the cloud setup options:
 
 1. Check pod status:
 ```bash
@@ -109,20 +90,14 @@ Note: For Minikube, LoadBalancer services need `minikube tunnel` running.
 
 ## Testing the Setup
 
-1. For Minikube local testing:
-```bash
-# Get service URLs
-minikube service kafka-ui --url     # For Kafka UI
-```
-
-2. Make sure the web server is running on localhost:8888 with correct KAFKA_BOOTSTRAP_SERVERS env var
+1. Make sure the web server is running on localhost:8888 with correct KAFKA_BOOTSTRAP_SERVERS env var
 ```bash
 cd ..
 docker compose up -f docker-compose.web.yml --build
 ```
-> Note for Minikube you need to have the web server not running in Docker and running from your host machine python from localhost:8888. Then set KAFKA_BOOTSTRAP_SERVERS to 127.0.0.1:9094,127.0.0.1:9094,127.0.0.1:9094 (need `minikube tunnel` running)
 
-# Test API endpoint
+2. Test the API endpoint
+```bash
 curl -X POST http://localhost:8888/v1/api/scrape \
   -H "Content-Type: application/json" \
   -d '{"query": "quantum computing advances"}'
@@ -131,28 +106,23 @@ curl -X POST http://localhost:8888/v1/api/scrape \
 ## Monitoring
 
 1. Access Kafka UI:
-- Minikube: `minikube service kafka-ui --url`
 - Cloud: Get LoadBalancer IP from `kubectl get svc kafka-ui`
 
 2. View logs:
 ```bash
 # For specific service
-kubectl logs -f deployment/research-consumer
+stern kafka # or research-consumer, kafka-ui, etc.
 
-# For all services (using stern)
+# For all services
 stern ".*" --all-namespaces
 ```
 
 ## Cleanup
 
-### Local Minikube:
+### Local Docker Compose:
 ```bash
-# Stop and delete cluster
-minikube stop
-minikube delete
-
-# Optional: Clear local Docker images
-docker system prune -a
+docker compose down -v
+docker system prune -a  # Optional: Clear local Docker images
 ```
 
 ### Azure:
@@ -168,8 +138,7 @@ docker system prune -a
 ## Troubleshooting
 
 1. LoadBalancer services stuck in "pending":
-   - For Minikube: Make sure `minikube tunnel` is running
-   - For Cloud: Check quota limits and network policies
+   - Check quota limits and network policies
 
 2. Pod CrashLoopBackOff:
 ```bash
@@ -177,19 +146,8 @@ kubectl describe pod <pod-name>
 kubectl logs <pod-name>
 ```
 
-3. Kafka connection issues:
-   - Check broker connectivity:
-   ```bash
-   kubectl exec -it kafka-0 -- nc -vz localhost 9092
-   ```
-   - Verify configuration:
-   ```bash
-   kubectl get cm kafka-config -o yaml
-   ```
-
-4. Image pull errors:
-   - For Minikube: Make sure you ran `eval $(minikube docker-env)`
-   - For Cloud: Check registry credentials and network policies
+3. Image pull errors:
+   - Check registry credentials and network policies
 
 ## Next Steps
 

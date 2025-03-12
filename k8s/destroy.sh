@@ -14,7 +14,7 @@ usage() {
 destroy_kubectl() {
     echo "Destroying kubectl resources..."
 
-    helm uninstall kafka kafka-ui research-consumer --wait
+    helm uninstall external-dns kafka kafka-ui research-consumer --wait
     kubectl delete pvc --all --now
 
     echo "Kubectl resources destruction completed!"

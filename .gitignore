@@ -21,6 +21,10 @@ wheels/
 *.egg
 *.db.lock
 
+# cert files
+*.crt
+*.key
+
 # Terraform
 *.tfstate
 *.tfstate.*

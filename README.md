@@ -39,17 +39,33 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    participant Web
+    participant Client
+    participant WebAPI
     participant Kafka
-    participant Workers
-    participant Redis
-    participant WS
-
-    Web->>Kafka: Produce job (1)
-    Kafka->>Workers: Consume job (2)
-    Workers->>Redis: SET job:123 "PROCESSING" (3)
-    Workers->>Kafka: Produce progress events (4)
-    Redis->>WS: PUBLISH job:123 "COMPLETED" (5)
+    participant ConsumerWS
+    
+    Note over Client: User initiates research request
+    
+    Client->>WebAPI: POST /v1/api/scrape {query: "ML paper"}
+    WebAPI->>Kafka: Produce job {jobId, query}
+    WebAPI->>Client: Return {jobId}
+    
+    Note over Client: Connect to WebSocket using jobId
+    Client->>ConsumerWS: WS Connect /ws/{jobId}
+    
+    Kafka->>ConsumerWS: Consume job
+    
+    Note over ConsumerWS: Start processing
+    ConsumerWS-->>Client: {status: "PROCESSING", progress: 0}
+    
+    Note over ConsumerWS: Scraping papers
+    ConsumerWS-->>Client: {status: "IN_PROGRESS", progress: 33}
+    
+    Note over ConsumerWS: Adding to vector store
+    ConsumerWS-->>Client: {status: "IN_PROGRESS", progress: 66}
+    
+    Note over ConsumerWS: Generating summary
+    ConsumerWS-->>Client: {status: "COMPLETED", progress: 100}
 
 ```
 

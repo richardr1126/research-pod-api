@@ -24,17 +24,21 @@ text_splitter = RecursiveCharacterTextSplitter(
 # Define the prompt template for generating AI responses
 prompt = PromptTemplate(
     template="""
-      You are an AI research assistant that helps users understand academic papers.
-      Use the following pieces of information to provide a detailed and specific answer to the question.
-      Use quotes and cite paper titles when possible.
+    Human: You are an AI assistant, and provides answers to questions by using fact based and statistical information when possible.
+    Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags.
+    If you don't know the answer, just say that you don't know, don't try to make up an answer.
+    
+    <context>
+    {context}
+    </context>
 
-      Context:
-      {context}
+    <question>
+    {question}
+    </question>
 
-      Question:
-      {question}
+    The response should be specific and use statistics or numbers when possible.
 
-      Answer:""",
+    Assistant:""",
     input_variables=["context", "question"]
 )
 

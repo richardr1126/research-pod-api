@@ -1,22 +1,3 @@
-# helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
-#   --set auth.clientProtocol=PLAINTEXT \
-#   --set auth.interbrokerProtocol=PLAINTEXT \
-#   --set listeners.client.protocol=PLAINTEXT \
-#   --set listeners.controller.protocol=PLAINTEXT \
-#   --set listeners.interbroker.protocol=PLAINTEXT \
-#   --set listeners.external.protocol=PLAINTEXT \
-#   --set externalAccess.enabled=true \
-#   --set externalAccess.broker.service.type=LoadBalancer \
-#   --set externalAccess.controller.service.type=LoadBalancer \
-#   --set externalAccess.broker.service.ports.external=9094 \
-#   --set externalAccess.controller.service.containerPorts.external=9094 \
-#   --set externalAccess.autoDiscovery.enabled=true \
-#   --set serviceAccount.create=true \
-#   --set rbac.create=true \
-#   --set controller.automountServiceAccountToken=true \
-#   --set broker.automountServiceAccountToken=true \
-#   --wait
-
 replicaCount: 1
 
 kraft:
@@ -36,6 +17,7 @@ controller:
 broker: # Using controller broker nodes instead of separate broker nodes
   automountServiceAccountToken: true
 
+# Configure TLS for all listeners
 listeners:
   client:
     protocol: PLAINTEXT
@@ -45,8 +27,20 @@ listeners:
   interbroker:
     protocol: PLAINTEXT
   external:
-    protocol: PLAINTEXT
+    protocol: SSL
     name: EXTERNAL
+
+# TLS Configuration
+tls:
+  enabled: true
+  type: jks
+  existingSecret: crt-secret
+  jksKeystoreKey: keystore.jks
+  jksTruststoreKey: keystore.p12
+  passwordsSecret: kafka-jks
+  password: "kafka123"
+  pemChainIncluded: true
+  sslClientAuth: none
 
 externalAccess:
   enabled: true
@@ -55,21 +49,27 @@ externalAccess:
       type: LoadBalancer
       ports:
         external: 9094
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: "{{ .targetPod }}.richardr.dev"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
   controller:
     service:
       type: LoadBalancer
       containerPorts:
         external: 9094
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: "{{ .targetPod }}.richardr.dev"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
   autoDiscovery:
     enabled: true
-
-# For prometheus metrics
-# metrics:
-#   jmx:
-#     enabled: true
 
 serviceAccount:
   create: true
 
 rbac:
   create: true
+
+# Enable metrics
+# metrics:
+#   jmx:
+#     enabled: true
