@@ -50,6 +50,11 @@ def process_message(message):
         # Scrape papers
         papers = scrape_arxiv(query, max_papers=3)
         logger.info(f"Scraped {len(papers)} results for job {job_id}")
+
+
+        # Web search
+        
+        #########################################################
         
         # Add papers to vector store (job_id is kept for logging/tracking only)
         rag_chain.add_papers(papers, job_id=job_id)
