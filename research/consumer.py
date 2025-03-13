@@ -68,15 +68,15 @@ def process_message(message):
         
         if not query:
             return
-            
+        
         # Initialize job progress
         job_progress[job_id] = {"status": "PROCESSING", "progress": 0}
         send_progress_update(job_id, "PROCESSING", 0, "Started processing request")
         
         logger.info(f"Processing scrape request for job {job_id}: {query}")
         
-        # Scrape papers
         send_progress_update(job_id, "IN_PROGRESS", 33, "Scraping papers")
+        # Scrape papers
         papers = scrape_arxiv(query, max_papers=3)
         logger.info(f"Scraped {len(papers)} results for job {job_id}")
 
@@ -85,13 +85,13 @@ def process_message(message):
         
         #########################################################
         
-        # Add papers to vector store
         send_progress_update(job_id, "IN_PROGRESS", 66, "Adding papers to vector store")
+        # Add papers to vector store
         rag_chain.add_papers(papers, job_id=job_id)
         logger.info(f"Added papers to vector store for job {job_id}")
         
-        # Generate summary
         send_progress_update(job_id, "IN_PROGRESS", 90, "Generating summary")
+        # Generate summary
         summary = rag_chain.query(query)
         
         # Prepare response
@@ -100,8 +100,8 @@ def process_message(message):
             "query": query,
             "summary": summary
         }
-        
-        # Send response and mark as complete
+
+        # Send response to Kafka for now and mark as complete
         producer.send('research-results', key=job_id.encode('utf-8'), value=response)
         producer.flush()
         send_progress_update(job_id, "COMPLETED", 100, "Processing complete")

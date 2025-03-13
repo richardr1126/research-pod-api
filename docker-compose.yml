@@ -42,8 +42,7 @@ services:
       context: ./research/
       dockerfile: Dockerfile
     volumes:
-      - ./research:/app
-      - ./research/scraper/pdfs:/app/scraper/pdfs
+      - ./research/data:/app/data
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     env_file:

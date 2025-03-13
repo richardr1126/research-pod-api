@@ -37,8 +37,8 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 # Copy application code
 COPY . .
 
-# Create volume mount point for Milvus Lite database
-RUN mkdir -p /app/data/milvus
+# Create volume mount point for Milvus Lite .db in the root directory
+RUN mkdir -p /app/data
 
 # Create non-root user
 RUN adduser --disabled-password --gecos "" appuser && \

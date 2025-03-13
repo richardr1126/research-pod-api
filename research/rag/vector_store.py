@@ -17,7 +17,7 @@ embeddings = OpenAIEmbeddings(
 milvus = Milvus(
     auto_id=True,
     embedding_function=embeddings,
-    connection_args={"uri": "./milvuslite.db"},  # Local file for Milvus Lite
+    connection_args={"uri": "./data/milvuslite.db"},  # Local file for Milvus Lite
     index_params={"index_type": "AUTOINDEX"},
     drop_old=True,
 )
@@ -32,8 +32,8 @@ def clear():
         milvus.client.close()
         
         # Define the files to delete
-        db_file = "./milvuslite.db"
-        lock_file = "./milvuslite.db.lock"
+        db_file = "./data/milvuslite.db"
+        lock_file = "./data/.milvuslite.db.lock"
         
         # Delete DB file if it exists
         if os.path.exists(db_file):
