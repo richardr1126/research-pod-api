@@ -26,7 +26,7 @@ az group create --name $AZ_RESOURCE_GROUP --location $AZ_LOCATION
 echo "Creating AKS cluster..."
 az aks create \
   --resource-group $AZ_RESOURCE_GROUP \
-  --name $CLUSTER_NAME \
+  --name $CLUSTER_NAME-az \
   --node-count $AZ_NODE_COUNT \
   --node-vm-size $AZ_NODE_SIZE \
   --enable-cluster-autoscaler \
@@ -37,7 +37,7 @@ az aks create \
 
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
-az aks get-credentials --resource-group $AZ_RESOURCE_GROUP --name $CLUSTER_NAME
+az aks get-credentials --resource-group $AZ_RESOURCE_GROUP --name $CLUSTER_NAME-az
 
 # Create Azure Container Registry
 echo "Creating Azure Container Registry..."
@@ -50,7 +50,7 @@ az acr create \
 echo "Connecting ACR to AKS..."
 az aks update \
   --resource-group $AZ_RESOURCE_GROUP \
-  --name $CLUSTER_NAME \
+  --name $CLUSTER_NAME-az \
   --attach-acr $AZ_ACR_NAME
 
 # Login to ACR

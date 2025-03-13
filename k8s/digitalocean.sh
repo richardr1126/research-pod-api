@@ -20,14 +20,14 @@ source "$(dirname "$0")/env.sh"
 # doctl auth init
 
 # Create Kubernetes cluster
-doctl kubernetes cluster create $CLUSTER_NAME \
+doctl kubernetes cluster create $CLUSTER_NAME-do \
   --region $DO_REGION \
-  --node-pool "name=$CLUSTER_NAME-pool;size=$DO_NODE_SIZE;auto-scale=$AUTO_SCALING;min-nodes=$MIN_NODES;max-nodes=$MAX_NODES" \
+  --node-pool "name=$CLUSTER_NAME-do-pool;size=$DO_NODE_SIZE;auto-scale=$AUTO_SCALING;min-nodes=$MIN_NODES;max-nodes=$MAX_NODES" \
   --version latest \
   --auto-upgrade
 
 # Configure kubectl
-doctl kubernetes cluster kubeconfig save $CLUSTER_NAME
+doctl kubernetes cluster kubeconfig save $CLUSTER_NAME-do
 
 # Create container registry
 doctl registry create $DO_REGISTRY_NAME \
@@ -53,7 +53,7 @@ docker buildx build \
     ../web
 
 # Connect registry to the cluster
-doctl kubernetes cluster registry add $CLUSTER_NAME
+doctl kubernetes cluster registry add $CLUSTER_NAME-do
 
 # Run setup script unless --no-install was specified
 cd helm

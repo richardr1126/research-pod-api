@@ -1,10 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+# Change from Deployment to StatefulSet
+kind: StatefulSet
 metadata:
   name: {{ include "research-cluster.fullname" . }}
   labels:
     {{- include "research-cluster.labels" . | nindent 4 }}
 spec:
+  serviceName: {{ include "research-cluster.fullname" . }}
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
@@ -42,7 +44,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: 8081
               protocol: TCP
           {{- with .Values.env }}
           env:

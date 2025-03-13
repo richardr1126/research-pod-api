@@ -6,7 +6,7 @@ _setup_completion() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="--build --docean --azure --clear"
+    opts="--build --docean --azure --gcp --clear"
 
     COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
     return 0
@@ -30,6 +30,7 @@ set -e
 BUILD=false
 DIGITAL_OCEAN=false
 AZURE=false
+GCP=false
 CLEAR=false
 
 for arg in "$@"; do
@@ -39,6 +40,8 @@ for arg in "$@"; do
     DIGITAL_OCEAN=true
   elif [ "$arg" == "--azure" ]; then
     AZURE=true
+  elif [ "$arg" == "--gcp" ]; then
+    GCP=true
   elif [ "$arg" == "--clear" ]; then
     CLEAR=true
   fi
@@ -63,11 +66,13 @@ kubectl delete pod kafka-client --ignore-not-found
 ENV_FLAGS=0
 [ "$DIGITAL_OCEAN" = true ] && ((ENV_FLAGS++))
 [ "$AZURE" = true ] && ((ENV_FLAGS++))
+[ "$GCP" = true ] && ((ENV_FLAGS++))
 
 if [ $ENV_FLAGS -ne 1 ]; then
     echo "Error: Exactly one environment flag must be specified:"
     echo "  --docean   : Deploy to DigitalOcean"
     echo "  --azure    : Deploy to Azure"
+    echo "  --gcp      : Deploy to Google Cloud"
     echo "Optional flags:"
     echo "  --build    : Build and push Docker images"
     echo "  --clear    : Clear existing resources before setup"
@@ -81,6 +86,9 @@ if [ "$DIGITAL_OCEAN" = true ]; then
 elif [ "$AZURE" = true ]; then
     REGISTRY="${AZ_ACR_NAME}.azurecr.io"
     echo "Using Azure Container Registry: $REGISTRY"
+elif [ "$GCP" = true ]; then
+    REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REGISTRY_NAME}"
+    echo "Using Google Cloud Artifact Registry: $REGISTRY"
 fi
 
 CONSUMER_IMAGE="${REGISTRY}/research-consumer"
@@ -101,43 +109,33 @@ if [ "$BUILD" = true ]; then
         echo "Building and pushing Docker images to DigitalOcean registry..."
         # Ensure we're logged into DO registry
         doctl registry login
-        
-        # Build and push consumer image
-        echo "Building and pushing consumer image..."
-        docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t $CONSUMER_IMAGE:latest \
-            --push \
-            ../../research
-        
-        # Build and push web API image
-        echo "Building and pushing web API image..."
-        docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t $WEB_API_IMAGE:latest \
-            --push \
-            ../../web
+
     elif [ "$AZURE" = true ]; then
         echo "Building and pushing Docker images to Azure Container Registry..."
         # Ensure we're logged into ACR
-        az acr login --name $ACR_NAME
-        
-        # Build and push consumer image
-        echo "Building and pushing consumer image..."
-        docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t $CONSUMER_IMAGE:latest \
-            --push \
-            ../../research
-        
-        # Build and push web API image
-        echo "Building and pushing web API image..."
-        docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t $WEB_API_IMAGE:latest \
-            --push \
-            ../../web
+        az acr login --name $AZ_ACR_NAME
+
+    elif [ "$GCP" = true ]; then
+        echo "Building and pushing Docker images to Google Artifact Registry..."
+        # Configure Docker for GCP Artifact Registry
+        gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev
     fi
+
+    # Build and push consumer image
+    echo "Building and pushing consumer image..."
+    docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        -t $CONSUMER_IMAGE:latest \
+        --push \
+        ../../research
+    
+    # Build and push web API image
+    echo "Building and pushing web API image..."
+    docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        -t $WEB_API_IMAGE:latest \
+        --push \
+        ../../web
 fi
 
 # Create Kubernetes secret from environment variables
@@ -169,6 +167,13 @@ helm repo add kafbat-ui https://kafbat.github.io/helm-charts
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
 
+# Install cert-manager for Let's Encrypt
+echo "Installing cert-manager..."
+helm upgrade --install cert-manager jetstack/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --set crds.enabled=true
+
 # Install ExternalDNS for Cloudflare
 echo "Installing ExternalDNS..."
 kubectl create secret generic cloudflare-dns \
@@ -179,13 +184,6 @@ helm upgrade --install external-dns oci://registry-1.docker.io/bitnamicharts/ext
     -f external-dns-values.yaml \
     --namespace cert-manager \
     --wait
-
-# Install cert-manager for Let's Encrypt
-echo "Installing cert-manager..."
-helm upgrade --install cert-manager jetstack/cert-manager \
-    --namespace cert-manager \
-    --create-namespace \
-    --set crds.enabled=true
 
 # Wait for cert-manager to be ready
 echo "Waiting for cert-manager to be ready..."

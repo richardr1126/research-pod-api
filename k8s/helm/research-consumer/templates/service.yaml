@@ -1,19 +1,28 @@
+{{- if .Values.service.enabled }}
+{{- $fullName := include "research-cluster.fullname" . }}
+{{- $svcName := printf "%s" (include "research-cluster.fullname" .) }}
+{{- $root := . }}
+{{- range $i := until (int .Values.replicaCount) }}
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "research-cluster.fullname" . }}
+  name: {{ $svcName }}-{{ $i }}
   labels:
-    {{- include "research-cluster.labels" . | nindent 4 }}
+    {{- include "research-cluster.labels" $root | nindent 4 }}
   annotations:
-    {{- if .Values.service.annotations }}
-    {{- toYaml .Values.service.annotations | nindent 4 }}
+    {{- with $root.Values.service.annotations }}
+    {{- tpl (toYaml .) (dict "targetPod" (printf "%s-%d" $svcName $i)) | nindent 4 }}
     {{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ $root.Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
+    - port: {{ $root.Values.service.port }}
       targetPort: 8081
       protocol: TCP
       name: http
   selector:
-    {{- include "research-cluster.selectorLabels" . | nindent 4 }}
+    {{- include "research-cluster.selectorLabels" $root | nindent 4 }}
+    statefulset.kubernetes.io/pod-name: {{ $svcName }}-{{ $i }}
+{{- end }}
+{{- end }}
