@@ -5,17 +5,18 @@ source "$(dirname "$0")/env.sh"
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [--azure | --docean]"
+    echo "Usage: $0 [--azure | --docean | --gcp]"
     echo "  --azure   Destroy Azure resources"
     echo "  --docean  Destroy Digital Ocean resources"
+    echo "  --gcp     Destroy Google Cloud resources"
     exit 1
 }
 
 destroy_kubectl() {
     echo "Destroying kubectl resources..."
-
-    helm uninstall external-dns kafka kafka-ui research-consumer --wait
-    kubectl delete pvc --all --now
+    helm uninstall -n cert-manager cert-manager external-dns --wait
+    helm uninstall kafka kafka-ui research-consumer --wait
+    kubectl delete pvc --all
 
     echo "Kubectl resources destruction completed!"
 }
@@ -64,6 +65,28 @@ destroy_docean() {
     echo "Digital Ocean resources destruction completed!"
 }
 
+# Function to destroy GCP resources
+destroy_gcp() {
+    echo "Destroying Google Cloud resources..."
+    destroy_kubectl # Destroy kubectl resources first
+
+    # Delete the GKE cluster
+    echo "Deleting GKE cluster..."
+    gcloud container clusters delete $CLUSTER_NAME-gcp \
+        --region $GCP_REGION \
+        --project $GCP_PROJECT_ID \
+        --quiet
+
+    # Delete the Artifact Registry repository
+    echo "Deleting Artifact Registry repository..."
+    gcloud artifacts repositories delete $GCP_REGISTRY_NAME \
+        --location=$GCP_REGION \
+        --project $GCP_PROJECT_ID \
+        --quiet
+
+    echo "Google Cloud resources destruction completed!"
+}
+
 # Parse command line arguments
 if [ $# -ne 1 ]; then
     usage
@@ -75,6 +98,9 @@ case "$1" in
         ;;
     --docean)
         destroy_docean
+        ;;
+    --gcp)
+        destroy_gcp
         ;;
     *)
         usage
