@@ -46,5 +46,8 @@ RUN adduser --disabled-password --gecos "" appuser && \
 
 USER appuser
 
+# Expose health check port
+EXPOSE 8081
+
 # Run the consumer
 CMD ["python", "consumer.py"]

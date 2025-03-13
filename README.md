@@ -25,48 +25,100 @@ This system helps us analyze research papers by:
 
 ## How It Works
 
+## System Architecture
+
 ```mermaid
 graph TD
-    A[User Request] --> B[Web API]
-    B --> C[Kafka Queue]
-    C --> D[Research Consumer]
-    D --> E[Vector Store]
-    D --> F[LLM Services]
-    E --> D
-    D --> G[Results Queue]
-    G --> B
+    Client[Client] --> |1 - HTTP Requests| WebAPI[Web API]
+    Client --> |4 - SSE Connection| Consumer1[Consumer 1]
+    Client --> |4 - SSE Connection| Consumer2[Consumer 2]
+    
+    WebAPI --> |2 - Store/Query Jobs| Redis[(Redis)]
+    WebAPI --> |2 - Publish Jobs| Kafka{Kafka}
+    
+    Kafka --> |3 - Consume Jobs| Consumer1
+    Kafka --> |3 - Consume Jobs| Consumer2
+    
+    Consumer1 --> |Update Status| Redis
+    Consumer2 --> |Update Status| Redis
+    
+    subgraph Consumers
+        Consumer1
+        Consumer2
+    end
 ```
+
+## Flow with Single Consumer
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant WebAPI
+    participant Redis
     participant Kafka
-    participant ConsumerWS
+    participant Consumer
     
     Note over Client: User initiates research request
-    
     Client->>WebAPI: POST /v1/api/scrape {query: "ML paper"}
+    WebAPI->>Redis: HSET job:{jobId} status "QUEUED"
     WebAPI->>Kafka: Produce job {jobId, query}
     WebAPI->>Client: Return {jobId}
     
-    Note over Client: Connect to WebSocket using jobId
-    Client->>ConsumerWS: WS Connect /ws/{jobId}
+    Note over Kafka,Consumer: Job assigned to Consumer
+    Kafka->>Consumer: Consume job
+    Consumer->>Redis: HSET job:{jobId} status "ASSIGNED" consumer "consumer1"
     
-    Kafka->>ConsumerWS: Consume job
+    Client->>WebAPI: GET /v1/api/jobs/{jobId}
+    WebAPI->>Redis: HGETALL job:{jobId}
+    Redis->>WebAPI: Return {consumer: "consumer1", events_url}
+    WebAPI->>Client: Return consumer connection details
     
-    Note over ConsumerWS: Start processing
-    ConsumerWS-->>Client: {status: "PROCESSING", progress: 0}
-    
-    Note over ConsumerWS: Scraping papers
-    ConsumerWS-->>Client: {status: "IN_PROGRESS", progress: 33}
-    
-    Note over ConsumerWS: Adding to vector store
-    ConsumerWS-->>Client: {status: "IN_PROGRESS", progress: 66}
-    
-    Note over ConsumerWS: Generating summary
-    ConsumerWS-->>Client: {status: "COMPLETED", progress: 100}
+    Client->>Consumer: GET /events/{jobId} (SSE)
+    Note over Consumer: Processing Pipeline
+    Consumer-->>Client: {status: "PROCESSING", progress: 0}
+    Consumer-->>Client: {status: "IN_PROGRESS", progress: 50}
+    Consumer->>Redis: HSET job:{jobId} progress 50
+    Consumer-->>Client: {status: "COMPLETED", progress: 100}
+    Consumer->>Redis: HSET job:{jobId} status "COMPLETED" progress 100
+```
 
+## Flow with Multiple Consumers
+```mermaid
+sequenceDiagram
+   participant Client
+   participant WebAPI
+   participant Redis
+   participant Kafka
+   participant Consumer1
+   participant Consumer2
+   
+   Note over Client: User initiates research request
+   Client->>WebAPI: POST /v1/api/scrape {query: "ML paper"}
+   WebAPI->>Redis: HSET job:{jobId} status "QUEUED"
+   WebAPI->>Kafka: Produce job {jobId, query}
+   WebAPI->>Client: Return {jobId}
+   
+   Note over Kafka,Consumer2: Job assigned to Consumer2
+   Kafka->>Consumer2: Consume job
+   Consumer2->>Redis: HSET job:{jobId} status "ASSIGNED" consumer "consumer2"
+   
+   Client->>WebAPI: GET /v1/api/jobs/{jobId}
+   WebAPI->>Redis: HGETALL job:{jobId}
+   Redis->>WebAPI: Return {consumer: "consumer2", events_url}
+   WebAPI->>Client: Return consumer connection details
+   
+   Client->>Consumer2: GET /events/{jobId} (SSE)
+   Note over Consumer2: Start processing
+   Consumer2-->>Client: {status: "PROCESSING", progress: 0}
+   Note over Consumer2: Scraping papers
+   Consumer2-->>Client: {status: "IN_PROGRESS", progress: 33}
+   Consumer2->>Redis: HSET job:{jobId} progress 33
+   Note over Consumer2: Adding to vector store
+   Consumer2-->>Client: {status: "IN_PROGRESS", progress: 66}
+   Consumer2->>Redis: HSET job:{jobId} progress 66
+   Note over Consumer2: Generating summary
+   Consumer2-->>Client: {status: "COMPLETED", progress: 100}
+   Consumer2->>Redis: HSET job:{jobId} status "COMPLETED" progress 100
 ```
 
 ### Main Parts

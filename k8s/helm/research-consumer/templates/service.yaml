@@ -4,11 +4,15 @@ metadata:
   name: {{ include "research-cluster.fullname" . }}
   labels:
     {{- include "research-cluster.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.service.annotations }}
+    {{- toYaml .Values.service.annotations | nindent 4 }}
+    {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: 8081
       protocol: TCP
       name: http
   selector:
