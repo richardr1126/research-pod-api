@@ -147,18 +147,6 @@ kubectl create secret generic api-secrets \
     --from-literal=AZURE_OPENAI_ENDPOINT="$AZURE_OPENAI_ENDPOINT" \
     --dry-run=client -o yaml | kubectl apply -f -
 
-# Create registry secrets based on environment
-if [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_TOKEN" ] && [ "$AZURE" = false ] && [ "$DIGITAL_OCEAN" = false ]; then
-    echo "Creating Docker Hub secret..."
-    kubectl create secret docker-registry dockerhub-secret \
-        --docker-server=https://index.docker.io/v1/ \
-        --docker-username=$DOCKER_USERNAME \
-        --docker-password=$DOCKER_TOKEN \
-        --dry-run=client -o yaml | kubectl apply -f -
-else
-    echo "Skipping Docker Hub secret creation for cloud..."
-fi
-
 # Add helm repositories
 echo "Adding Helm repositories..."
 helm repo add bitnami https://charts.bitnami.com/bitnami

@@ -37,6 +37,16 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   research-consumer:
     build: 
       context: ./research/
@@ -45,11 +55,14 @@ services:
       - ./research/data:/app/data
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - REDIS_URL=redis://redis:6379
     env_file:
       - ./research/.env
     ports:
       - "8081:8081"
     depends_on:
+      redis:
+        condition: service_healthy
       kafka:
         condition: service_healthy
 
@@ -61,9 +74,12 @@ services:
       - "8888:8080"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - REDIS_URL=redis://redis:6379
       - FLASK_APP=server:server
       - FLASK_ENV=development
       - FLASK_DEBUG=1
     depends_on:
+      redis:
+        condition: service_healthy
       kafka:
         condition: service_healthy

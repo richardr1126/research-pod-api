@@ -3,3 +3,4 @@ python-dotenv
 flask-cors
 gunicorn
 kafka-python
+redis
