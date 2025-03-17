@@ -153,6 +153,7 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo add kafka-ui https://provectus.github.io/kafka-ui-charts
 helm repo add kafbat-ui https://kafbat.github.io/helm-charts
 helm repo add jetstack https://charts.jetstack.io
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 
 # Install cert-manager for Let's Encrypt
@@ -255,6 +256,12 @@ kubectl wait --for=condition=Ready certificate/crt --timeout=1000s
 
 kubectl get secrets crt-secret -o yaml
 
+# Add this after installing cert-manager but before installing Kafka:
+echo "Installing NGINX Ingress Controller..."
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    --set controller.publishService.enabled=true \
+    --wait
+
 # Install Kafka with any registry secret to prevent pull rate limits
 echo "Installing Kafka..."
 if [ "$DIGITAL_OCEAN" = true ]; then
@@ -263,16 +270,16 @@ if [ "$DIGITAL_OCEAN" = true ]; then
         -f kafka-values.yaml \
         --set image.pullSecrets[0]=research-pod-registry \
         --wait
-elif [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_TOKEN" ] && [ "$AZURE" = false ]; then
-    echo "Installing Kafka with Docker Hub secrets..."
-    helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
-        -f kafka-values.yaml \
-        --set image.pullSecrets[0]=dockerhub-secret \
-        --wait
 else
     echo "Installing Kafka without registry secrets..."
     helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka -f kafka-values.yaml --wait
 fi
+
+# Install Redis standalone
+echo "Installing Redis..."
+helm upgrade --install redis oci://registry-1.docker.io/bitnamicharts/redis \
+    -f redis-values.yaml \
+    --wait
 
 # Create Kafka client pod for topic management
 echo "Creating Kafka client pod..."
@@ -306,6 +313,11 @@ helm upgrade --install kafka-ui kafbat-ui/kafka-ui -f kafka-ui-values.yaml --wai
 echo "Installing custom charts..."
 helm upgrade --install research-consumer ./research-consumer \
     --set image.repository=${CONSUMER_IMAGE} \
+    --set image.pullPolicy=${IMAGE_PULL_POLICY} \
+    --wait
+
+helm upgrade --install web-api ./web-api \
+    --set image.repository=${WEB_API_IMAGE} \
     --set image.pullPolicy=${IMAGE_PULL_POLICY} \
     --wait
 

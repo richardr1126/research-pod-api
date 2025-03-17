@@ -55,8 +55,10 @@ def get_consumer_url(job_id):
     if os.getenv('KUBERNETES_SERVICE_HOST'):
         # Get assigned consumer from Redis
         consumer_id = redis_client.hget(f"job:{job_id}", "consumer")
-        if (consumer_id):
+        if consumer_id:
             return f"https://research-consumer-{consumer_id}.richardr.dev"
+        else:
+            return None
     # Default to localhost for local development
     return "http://localhost:8081"
 
@@ -120,25 +122,48 @@ def get_job(job_id):
         job_data = redis_client.hgetall(f"job:{job_id}")
         if not job_data:
             return jsonify({"error": "Job not found"}), 404
-            
-        # Get consumer URL
-        consumer_url = get_consumer_url(job_id)
-        events_url = f"{consumer_url}/events/{job_id}"
         
-        return jsonify({
+        response = {
             "job_id": job_id,
             "status": job_data.get("status"),
             "progress": int(job_data.get("progress", 0)),
-            "query": job_data.get("query"),
-            "events_url": events_url
-        })
+            "query": job_data.get("query")
+        }
+        
+        # Get consumer URL
+        consumer_url = get_consumer_url(job_id)
+        if consumer_url:
+            events_url = f"{consumer_url}/events/{job_id}"
+            response["events_url"] = events_url
+            
+        return jsonify(response), 200
         
     except Exception as e:
         logger.error(f"Error getting job status: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Example route
-@server.route('/v1/api/hello', methods=['GET'])
-def hello():
-    message = "Hello from Flask!"
-    return jsonify({"message": message})
+# Health check endpoint
+@server.route('/health')
+def health():
+    """Simple health check endpoint."""
+    status = {
+        "status": "healthy",
+        "redis": "healthy",
+        "kafka_producer": "healthy"
+    }
+    
+    # Check Redis connection
+    try:
+        redis_client.ping()
+    except Exception as e:
+        status["redis"] = "unhealthy"
+        status["status"] = "degraded"
+    
+    # Check Kafka producer
+    if not producer:
+        status["kafka_producer"] = "unhealthy"
+        status["status"] = "degraded"
+    
+    http_status = 200 if status["status"] == "healthy" else 503
+    return jsonify(status), http_status
+    

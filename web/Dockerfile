@@ -16,7 +16,10 @@ ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=development \
     FLASK_DEBUG=1
 
+# Expose port
+EXPOSE 8888
+
 # Run with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "server:server"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8888", "--workers", "1", "server:server"]
 # gunicorn --bind 0.0.0.0:8080 --workers 1 server:server
 # flask run --port 8888

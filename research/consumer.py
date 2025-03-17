@@ -152,21 +152,8 @@ def process_message(message):
 
 @app.route('/health')
 def health():
-    """Health check endpoint."""
-    try:
-        # Check Kafka connection
-        consumer.topics()
-        #producer.flush()
-        return jsonify({
-            "status": "healthy",
-            "kafka_connected": True
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "unhealthy",
-            "kafka_connected": False,
-            "error": str(e)
-        }), 503
+    """Simple health check endpoint."""
+    return jsonify({"status": "ok"})
 
 @app.route('/events/<job_id>')
 def events(job_id):
