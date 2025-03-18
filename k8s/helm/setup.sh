@@ -121,10 +121,10 @@ fi
 # Create Kubernetes secret from environment variables
 echo "Creating Kubernetes secrets..."
 kubectl create secret generic api-secrets \
-    --from-literal=DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
-    --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY" \
-    --from-literal=AZURE_OPENAI_KEY="$AZURE_OPENAI_KEY" \
-    --from-literal=AZURE_OPENAI_ENDPOINT="$AZURE_OPENAI_ENDPOINT" \
+    --from-literal=DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY \
+    --from-literal=OPENAI_API_KEY=$OPENAI_API_KEY \
+    --from-literal=AZURE_OPENAI_KEY=$AZURE_OPENAI_KEY \
+    --from-literal=AZURE_OPENAI_ENDPOINT=$AZURE_OPENAI_ENDPOINT \
     --dry-run=client -o yaml | kubectl apply -f -
 
 # Add helm repositories
@@ -138,10 +138,10 @@ helm repo update
 
 # Install cert-manager for Let's Encrypt
 echo "Installing cert-manager..."
-helm upgrade --install cert-manager jetstack/cert-manager \
-    --namespace cert-manager \
+helm upgrade --install -n cert-manager cert-manager jetstack/cert-manager \
     --create-namespace \
-    --set crds.enabled=true
+    -f ./cert-manager/values.yaml \
+    --wait
 
 # Install ExternalDNS for Cloudflare
 echo "Installing ExternalDNS..."
@@ -164,33 +164,10 @@ kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager -
 echo "Creating letsencrypt-staging-key secret..."
 kubectl create secret generic letsencrypt-staging-key \
     --dry-run=client -o yaml | kubectl apply -f -
+
 # Create cluster issuer secrets
 echo "Creating Let's Encrypt cluster issuer secrets..."
-kubectl apply -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-staging
-spec:
-  acme:
-    # Email address for expiration notices
-    email: me@richardroberson.dev
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-    privateKeySecretRef:
-      # Secret that will contain the ACME private key
-      name: letsencrypt-staging-key
-    solvers:
-    # Use DNS-01 challenge with Cloudflare
-    - dns01:
-        cloudflare:
-          email: me@richardroberson.dev
-          apiTokenSecretRef:
-            name: cloudflare-dns
-            key: cloudflare_api_token
-      selector:
-        dnsZones:
-        - "richardr.dev"
-EOF
+kubectl apply -f ./cert-manager/cluster-issuer.yaml
 
 kubectl wait --for=condition=Ready clusterissuer/letsencrypt-staging --timeout=60s
 
@@ -201,34 +178,7 @@ kubectl create secret generic kafka-jks \
 
 # Generate SSL certificates for Kafka
 echo "Generating SSL certificates for Kafka..."
-cat <<EOF | kubectl apply -f -
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: crt
-  namespace: default
-spec:
-  secretName: crt-secret
-  duration: 8760h # 1 year
-  renewBefore: 720h # 30 days
-  commonName: "*.richardr.dev"
-  dnsNames:
-  - "*.richardr.dev"
-  issuerRef:
-    name: letsencrypt-staging
-    kind: ClusterIssuer
-  keystores:
-    jks:
-      create: true
-      passwordSecretRef:
-        name: kafka-jks
-        key: keystore-password
-    pkcs12:
-      create: true
-      passwordSecretRef: # Truststore password
-        name: kafka-jks
-        key: truststore-password
-EOF
+kubectl apply -f ./cert-manager/kafka-certificate.yaml
 
 # Wait for the certificate to be ready
 echo "Waiting for Kafka certificate to be ready..."
@@ -236,26 +186,27 @@ kubectl wait --for=condition=Ready certificate/crt --timeout=1000s
 
 kubectl get secrets crt-secret -o yaml
 
-# Add this after installing cert-manager but before installing Kafka:
+# Install NGINX Ingress Controller
 echo "Installing NGINX Ingress Controller..."
-helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-    --set controller.publishService.enabled=true \
+if [ "$AZURE" = true ]; then
+  # Azure has weird issues with the default NGINX Ingress Controller
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    -f nginx-values.yaml \
+    -f azure-nginx-values.yaml \
     --wait
-
-# Install Kafka with any registry secret to prevent pull rate limits
-echo "Installing Kafka..."
-if [ "$DIGITAL_OCEAN" = true ]; then
-    echo "Installing Kafka with DigitalOcean registry secrets..."
-    helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
-        -f kafka-values.yaml \
-        --set image.pullSecrets[0]=researchpodcontainerregistry \
-        --wait
 else
-    echo "Installing Kafka without registry secrets..."
-    helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka -f kafka-values.yaml --wait
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    -f nginx-values.yaml \
+    --wait
 fi
 
-# Install Redis standalone
+# Install Kafka bitnami chart
+echo "Installing Kafka..."
+helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
+  -f kafka-values.yaml \
+  --wait
+
+# Install Redis standalone master
 echo "Installing Redis..."
 helm upgrade --install redis oci://registry-1.docker.io/bitnamicharts/redis \
     -f redis-values.yaml \

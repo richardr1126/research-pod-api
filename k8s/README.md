@@ -7,7 +7,7 @@ This guide explains how to deploy our research pod system using cloud providers 
 - kubectl installed and configured
 - Helm v3.x installed
 - Docker with buildx support for multi-architecture builds
-- One of the following for cloud deployment:
+- One of the following for cloud deployment **with access to at least 6 vCPUs in the respective regions**:
   - Azure CLI for AKS deployment
   - Digital Ocean CLI (doctl) for DO deployment
   - Google Cloud CLI (gcloud) for GCP deployment
@@ -48,7 +48,6 @@ doctl auth init
 For GCP:
 ```bash
 gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
 ```
 
 2. Run the appropriate setup script:
@@ -95,6 +94,72 @@ Flags:
 - `--azure`, `--docean`, or `--gcp`: Choose your cloud provider (required)
 - `--build`: Build and push Docker images
 - `--clear`: Clear existing resources before setup
+
+The setup script performs the following steps:
+
+1. **Initial Setup**:
+   - Validates environment flags and configuration
+   - Loads environment variables from `research/.env`
+   - Optionally clears existing resources with `--clear`
+
+2. **Container Registry Setup**:
+   - For DigitalOcean: Uses `registry.digitalocean.com/${REGISTRY_NAME}`
+   - For Azure: Uses `${REGISTRY_NAME}.azurecr.io`
+   - For GCP: Uses `${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}`
+
+3. **Image Building** (if --build flag is used):
+   - Builds multi-architecture images (linux/amd64,linux/arm64)
+   - Builds and pushes research-consumer and web-api images
+
+4. **Kubernetes Secret Creation**:
+   - Creates api-secrets for API keys
+   - Sets up CloudFlare DNS secrets
+   - Creates JKS keystore secrets for Kafka
+
+5. **Core Components Installation**:
+   - Installs cert-manager for SSL certificate management
+   - Sets up ExternalDNS for Cloudflare integration
+   - Configures Let's Encrypt staging issuer
+   - Generates SSL certificates for Kafka
+   - Installs NGINX Ingress Controller (with Azure-specific configuration if needed)
+
+6. **Service Deployment**:
+   - Deploys Kafka with SSL/TLS encryption
+   - Sets up Redis standalone master
+   - Creates required Kafka topics:
+     - research-results (24h retention)
+     - research-errors
+     - scrape-requests (24h retention)
+   - Installs Kafka UI dashboard
+   - Deploys research-consumer service
+   - Deploys web-api service
+
+Each component is installed with appropriate wait conditions to ensure proper initialization order.
+
+## Component Details
+
+### Cert Manager Configuration
+
+The setup includes two main cert-manager resources:
+
+1. **ClusterIssuer**: Configures Let's Encrypt staging with Cloudflare DNS validation
+2. **Certificate**: Creates wildcard certificate for *.richardr.dev with:
+   - 1 year duration
+   - 30 day renewal window
+   - JKS and PKCS12 keystore generation
+
+### Kafka Setup
+
+- Uses Bitnami Kafka chart
+- Configures 3 replicas with SSL/TLS external access encryption
+- Creates topics with appropriate retention policies
+- Includes Kafka UI for monitoring (no encrytion yet)
+
+### Redis Configuration
+
+- Standalone master node configuration
+- Persistent volume storage
+- No auth or outside access, only internal service access
 
 ## Verify Your Setup
 

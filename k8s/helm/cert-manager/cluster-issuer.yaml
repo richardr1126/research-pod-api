@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    # Email address for expiration notices
+    email: me@richardroberson.dev
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      # Secret that will contain the ACME private key
+      name: letsencrypt-staging-key
+    solvers:
+    # Use DNS-01 challenge with Cloudflare
+    - dns01:
+        cloudflare:
+          email: me@richardroberson.dev
+          apiTokenSecretRef:
+            name: cloudflare-dns
+            key: cloudflare_api_token
+      selector:
+        dnsZones:
+        - "richardr.dev"

@@ -33,8 +33,6 @@ az aks create \
   --min-count $MIN_NODES \
   --max-count $MAX_NODES \
   --enable-addons monitoring \
-  --network-plugin azure \
-  --network-policy azure \
   --generate-ssh-keys
 
 # Get credentials for kubectl

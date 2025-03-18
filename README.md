@@ -303,9 +303,10 @@ Get job status:
   "events_url": "https://research-consumer-{id}.richardr.dev/v1/events/{job_id}"
 }
 ```
+> **Note**: Poll this endpoint until `events_url` is available (it might not be at first). You should not poll this endpoint after the `events_url` is provided. Connect to directly to the `events_url` for real-time updates.
 
 ### GET /v1/events/{job_id}
-Server-Sent Events (SSE) endpoint for real-time updates.
+Server-Sent Events (SSE) endpoint for real-time updates without polling the main API.
 
 Events:
 - `status`: Job status updates
