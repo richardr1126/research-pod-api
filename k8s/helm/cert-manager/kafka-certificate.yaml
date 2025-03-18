@@ -1,0 +1,26 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: crt
+  namespace: default
+spec:
+  secretName: crt-secret
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  commonName: "*.richardr.dev"
+  dnsNames:
+  - "*.richardr.dev"
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  keystores:
+    jks:
+      create: true
+      passwordSecretRef:
+        name: kafka-jks
+        key: keystore-password
+    pkcs12:
+      create: true
+      passwordSecretRef:
+        name: kafka-jks
+        key: truststore-password

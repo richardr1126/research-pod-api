@@ -13,6 +13,8 @@ import time
 from threading import Thread
 from queue import Queue
 import threading
+import redis
+import socket
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -48,8 +50,30 @@ producer = KafkaProducer( # Producer to return research results
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
+# Initialize Redis client
+redis_client = redis.Redis.from_url(
+    os.getenv('REDIS_URL', 'redis://localhost:6379'),
+    decode_responses=True
+)
+
+# Get consumer ID from hostname (for Kubernetes)
+hostname = socket.gethostname()
+consumer_id = hostname.split('-')[-1] if '-' in hostname else '0'
+
 def send_progress_update(job_id: str, status: str, progress: int, message: str = None):
-    """Send a progress update to the SSE stream."""
+    """Send a progress update to both Redis and SSE stream."""
+    # Update Redis
+    update_data = {
+        "status": status,
+        "progress": progress,
+        "consumer": consumer_id
+    }
+    if message:
+        update_data["message"] = message
+    
+    redis_client.hset(f"job:{job_id}", mapping=update_data)
+    
+    # Send to SSE stream
     update = {
         "job_id": job_id,
         "status": status,
@@ -68,6 +92,14 @@ def process_message(message):
         
         if not query:
             return
+            
+        # Update Redis with consumer assignment
+        redis_client.hset(f"job:{job_id}", 
+            mapping={
+                "status": "ASSIGNED",
+                "consumer": consumer_id
+            }
+        )
         
         # Initialize job progress
         job_progress[job_id] = {"status": "PROCESSING", "progress": 0}
@@ -120,23 +152,10 @@ def process_message(message):
 
 @app.route('/health')
 def health():
-    """Health check endpoint."""
-    try:
-        # Check Kafka connection
-        consumer.topics()
-        #producer.flush()
-        return jsonify({
-            "status": "healthy",
-            "kafka_connected": True
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "unhealthy",
-            "kafka_connected": False,
-            "error": str(e)
-        }), 503
+    """Simple health check endpoint."""
+    return jsonify({"status": "ok"})
 
-@app.route('/events/<job_id>')
+@app.route('/v1/events/<job_id>')
 def events(job_id):
     """SSE endpoint for job progress updates."""
     def generate():

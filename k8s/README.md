@@ -1,16 +1,18 @@
 # Kubernetes Setup Guide
 
-This guide explains how to deploy our research pod system using cloud providers (Azure/DigitalOcean). For local testing, we use Docker Compose.
+This guide explains how to deploy our research pod system using cloud providers (Azure/DigitalOcean/GCP). For local testing, we use Docker Compose.
 
 ## Prerequisites
 
 - kubectl installed and configured
 - Helm v3.x installed
-- Docker with buildx support
-- Python 3.12+
-- One of the following for cloud deployment:
+- Docker with buildx support for multi-architecture builds
+- One of the following for cloud deployment **with access to at least 6 vCPUs in the respective regions**:
   - Azure CLI for AKS deployment
   - Digital Ocean CLI (doctl) for DO deployment
+  - Google Cloud CLI (gcloud) for GCP deployment
+- Cloudflare API token for DNS management
+- API keys for OpenAI and other services
 
 ## Setup Options
 
@@ -26,54 +28,140 @@ Edit `.env` and add your API keys (contact team lead for access).
 
 2. Start the services:
 ```bash
-docker compose up -f docker-compose.web.yml --build
+docker compose up --build
 ```
 
-3. Test the API endpoint:
-```bash
-curl -X POST http://localhost:8888/v1/api/scrape \
-  -H "Content-Type: application/json" \
-  -d '{"query": "quantum computing advances"}'
-```
+### 2. Cloud Deployment (Azure, DigitalOcean, or GCP)
 
-### 2. Azure Kubernetes Service (AKS)
+1. First, authenticate with your chosen cloud provider:
 
-1. Login to Azure:
+For Azure:
 ```bash
 az login
 ```
 
-2. Run the Azure setup script:
-```bash
-./azure.sh
-```
-
-This script will:
-- Create a resource group
-- Set up AKS cluster
-- Configure Azure Container Registry (ACR)
-- Deploy all services
-
-### 3. Digital Ocean Kubernetes
-
-1. Authenticate with DO:
+For DigitalOcean:
 ```bash
 doctl auth init
 ```
 
-2. Run the Digital Ocean setup script:
+For GCP:
 ```bash
-./digitalocean.sh
+gcloud auth login
 ```
 
-This script will:
+2. Run the appropriate setup script:
+```bash
+# For Azure
+./azure.sh
+
+# For DigitalOcean
+./digitalocean.sh
+
+# For Google Cloud
+./gcp.sh
+```
+
+Each script will:
 - Create a Kubernetes cluster
 - Set up container registry
-- Deploy all services
+- Configure DNS settings
+- Deploy all required services including:
+  - Kafka with SSL/TLS encryption
+  - Redis
+  - Kafka UI
+  - External DNS
+  - Cert Manager
+  - NGINX Ingress Controller
+  - Research Consumer service
+  - Web API service
+
+You can add the `--no-install` flag to skip the Helm chart installation step:
+```bash
+./gcp.sh --no-install
+```
+
+### 3. Manual Helm Setup
+
+If you need to manually run the Helm setup:
+
+```bash
+cd helm
+./setup.sh [--azure|--docean|--gcp] [--build] [--clear]
+```
+
+Flags:
+- `--azure`, `--docean`, or `--gcp`: Choose your cloud provider (required)
+- `--build`: Build and push Docker images
+- `--clear`: Clear existing resources before setup
+
+The setup script performs the following steps:
+
+1. **Initial Setup**:
+   - Validates environment flags and configuration
+   - Loads environment variables from `research/.env`
+   - Optionally clears existing resources with `--clear`
+
+2. **Container Registry Setup**:
+   - For DigitalOcean: Uses `registry.digitalocean.com/${REGISTRY_NAME}`
+   - For Azure: Uses `${REGISTRY_NAME}.azurecr.io`
+   - For GCP: Uses `${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}`
+
+3. **Image Building** (if --build flag is used):
+   - Builds multi-architecture images (linux/amd64,linux/arm64)
+   - Builds and pushes research-consumer and web-api images
+
+4. **Kubernetes Secret Creation**:
+   - Creates api-secrets for API keys
+   - Sets up CloudFlare DNS secrets
+   - Creates JKS keystore secrets for Kafka
+
+5. **Core Components Installation**:
+   - Installs cert-manager for SSL certificate management
+   - Sets up ExternalDNS for Cloudflare integration
+   - Configures Let's Encrypt staging issuer
+   - Generates SSL certificates for Kafka
+   - Installs NGINX Ingress Controller (with Azure-specific configuration if needed)
+
+6. **Service Deployment**:
+   - Deploys Kafka with SSL/TLS encryption
+   - Sets up Redis standalone master
+   - Creates required Kafka topics:
+     - research-results (24h retention)
+     - research-errors
+     - scrape-requests (24h retention)
+   - Installs Kafka UI dashboard
+   - Deploys research-consumer service
+   - Deploys web-api service
+
+Each component is installed with appropriate wait conditions to ensure proper initialization order.
+
+## Component Details
+
+### Cert Manager Configuration
+
+The setup includes two main cert-manager resources:
+
+1. **ClusterIssuer**: Configures Let's Encrypt staging with Cloudflare DNS validation
+2. **Certificate**: Creates wildcard certificate for *.richardr.dev with:
+   - 1 year duration
+   - 30 day renewal window
+   - JKS and PKCS12 keystore generation
+
+### Kafka Setup
+
+- Uses Bitnami Kafka chart
+- Configures 3 replicas with SSL/TLS external access encryption
+- Creates topics with appropriate retention policies
+- Includes Kafka UI for monitoring (no encrytion yet)
+
+### Redis Configuration
+
+- Standalone master node configuration
+- Persistent volume storage
+- No auth or outside access, only internal service access
 
 ## Verify Your Setup
-
-After running any of the cloud setup options:
 
 1. Check pod status:
 ```bash
@@ -85,74 +173,69 @@ All pods should show "Running" status.
 ```bash
 kubectl get svc
 ```
-Note: For Minikube, LoadBalancer services need `minikube tunnel` running.
 
-
-## Testing the Setup
-
-1. Make sure the web server is running on localhost:8888 with correct KAFKA_BOOTSTRAP_SERVERS env var
+3. Check certificates:
 ```bash
-cd ..
-docker compose up -f docker-compose.web.yml --build
+kubectl get certificates
 ```
 
-2. Test the API endpoint
-```bash
-curl -X POST http://localhost:8888/v1/api/scrape \
-  -H "Content-Type: application/json" \
-  -d '{"query": "quantum computing advances"}'
-```
-
-## Monitoring
+## Monitoring and Management
 
 1. Access Kafka UI:
-- Cloud: Get LoadBalancer IP from `kubectl get svc kafka-ui`
+   - Available at `https://kafka-ui.richardr.dev`
 
 2. View logs:
 ```bash
 # For specific service
-stern kafka # or research-consumer, kafka-ui, etc.
+stern research-consumer
+stern web-api
 
-# For all services
-stern ".*" --all-namespaces
+# Using stern for multi-pod logs
+stern "kafka|research-consumer|web-api" --all-namespaces
 ```
 
 ## Cleanup
 
-### Local Docker Compose:
-```bash
-docker compose down -v
-docker system prune -a  # Optional: Clear local Docker images
-```
+To destroy your cloud infrastructure:
 
-### Azure:
 ```bash
-./destroy.sh --azure
-```
-
-### Digital Ocean:
-```bash
-./destroy.sh --docean
+./destroy.sh [--azure|--docean|--gcp]
 ```
 
 ## Troubleshooting
 
-1. LoadBalancer services stuck in "pending":
-   - Check quota limits and network policies
+1. Certificate issues:
+```bash
+kubectl describe certificate crt
+kubectl describe clusterissuer letsencrypt-staging
+```
 
-2. Pod CrashLoopBackOff:
+2. Pod issues:
 ```bash
 kubectl describe pod <pod-name>
 kubectl logs <pod-name>
 ```
 
 3. Image pull errors:
-   - Check registry credentials and network policies
+   - Check registry credentials
+   - Verify image names and tags
+   - Ensure proper registry authentication
 
-## Next Steps
+4. Kafka connectivity issues:
+   - Check SSL certificate status
+   - Verify broker endpoints
+   - Check topic creation status with kafka-client pod
 
-- Set up monitoring with Prometheus/Grafana
-- Configure backup and disaster recovery
-- Implement auto-scaling policies
-- Add SSL/TLS encryption for Kafka
-- Set up CI/CD pipelines
+5. DNS issues:
+   - Verify Cloudflare API token
+   - Check External DNS pod logs
+   - Ensure DNS records are propagating
+
+## Architecture Notes
+
+- Uses multi-architecture container images (amd64/arm64)
+- SSL/TLS encryption for Kafka with Let's Encrypt certificates
+- Cloudflare DNS integration for automatic DNS management
+- Horizontal pod autoscaling enabled
+- NGINX Ingress for load balancing
+- Redis for caching/message queuing

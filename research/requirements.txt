@@ -3,6 +3,7 @@ flask
 python-dotenv
 flask-cors
 gunicorn
+redis
 paperscraper
 nltk
 openai

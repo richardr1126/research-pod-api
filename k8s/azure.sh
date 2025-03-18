@@ -43,7 +43,7 @@ az aks get-credentials --resource-group $AZ_RESOURCE_GROUP --name $CLUSTER_NAME-
 echo "Creating Azure Container Registry..."
 az acr create \
   --resource-group $AZ_RESOURCE_GROUP \
-  --name $AZ_ACR_NAME \
+  --name $REGISTRY_NAME \
   --sku Standard
 
 # Connect ACR with AKS
@@ -51,24 +51,24 @@ echo "Connecting ACR to AKS..."
 az aks update \
   --resource-group $AZ_RESOURCE_GROUP \
   --name $CLUSTER_NAME-az \
-  --attach-acr $AZ_ACR_NAME
+  --attach-acr $REGISTRY_NAME
 
 # Login to ACR
 echo "Logging into ACR..."
-az acr login --name $AZ_ACR_NAME
+az acr login --name $REGISTRY_NAME
 
 # Build and push multi-architecture images
 echo "Building and pushing consumer image..."
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
-    -t ${AZ_ACR_NAME}.azurecr.io/research-consumer:latest \
+    -t ${REGISTRY_NAME}.azurecr.io/research-consumer:latest \
     --push \
     ../research
 
 echo "Building and pushing web API image..."
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
-    -t ${AZ_ACR_NAME}.azurecr.io/web-api:latest \
+    -t ${REGISTRY_NAME}.azurecr.io/web-api:latest \
     --push \
     ../web
 

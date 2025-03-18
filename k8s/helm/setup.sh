@@ -1,25 +1,5 @@
 #!/bin/bash
 
-# Add completion function at the start of the script
-_setup_completion() {
-    local cur prev opts
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="--build --docean --azure --gcp --clear"
-
-    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-    return 0
-}
-
-# Register the completion function
-complete -F _setup_completion setup.sh
-
-# Only run the completion if we're being sourced
-if [ "${BASH_SOURCE[0]}" != "${0}" ]; then
-    return
-fi
-
 # Source shared environment variables
 source "$(dirname "$0")/../env.sh"
 
@@ -52,7 +32,7 @@ if [ "$CLEAR" = true ]; then
     echo "Clearing existing resources..."
     helm uninstall -n cert-manager cert-manager external-dns --wait --ignore-not-found
     helm uninstall kafka kafka-ui research-consumer --wait --ignore-not-found
-    kubectl delete secrets --all
+    #kubectl delete secrets --all
     kubectl delete clusterissuer --all
     kubectl delete certificaterequests.cert-manager.io --all
     kubectl delete certificates.cert-manager.io --all
@@ -81,13 +61,13 @@ fi
 
 # Set image repository based on registry choice
 if [ "$DIGITAL_OCEAN" = true ]; then
-    REGISTRY="registry.digitalocean.com/${DO_REGISTRY_NAME}"
+    REGISTRY="registry.digitalocean.com/${REGISTRY_NAME}"
     echo "Using DigitalOcean registry: $REGISTRY"
 elif [ "$AZURE" = true ]; then
-    REGISTRY="${AZ_ACR_NAME}.azurecr.io"
+    REGISTRY="${REGISTRY_NAME}.azurecr.io"
     echo "Using Azure Container Registry: $REGISTRY"
 elif [ "$GCP" = true ]; then
-    REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REGISTRY_NAME}"
+    REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
     echo "Using Google Cloud Artifact Registry: $REGISTRY"
 fi
 
@@ -113,7 +93,7 @@ if [ "$BUILD" = true ]; then
     elif [ "$AZURE" = true ]; then
         echo "Building and pushing Docker images to Azure Container Registry..."
         # Ensure we're logged into ACR
-        az acr login --name $AZ_ACR_NAME
+        az acr login --name $REGISTRY_NAME
 
     elif [ "$GCP" = true ]; then
         echo "Building and pushing Docker images to Google Artifact Registry..."
@@ -141,23 +121,11 @@ fi
 # Create Kubernetes secret from environment variables
 echo "Creating Kubernetes secrets..."
 kubectl create secret generic api-secrets \
-    --from-literal=DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
-    --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY" \
-    --from-literal=AZURE_OPENAI_KEY="$AZURE_OPENAI_KEY" \
-    --from-literal=AZURE_OPENAI_ENDPOINT="$AZURE_OPENAI_ENDPOINT" \
+    --from-literal=DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY \
+    --from-literal=OPENAI_API_KEY=$OPENAI_API_KEY \
+    --from-literal=AZURE_OPENAI_KEY=$AZURE_OPENAI_KEY \
+    --from-literal=AZURE_OPENAI_ENDPOINT=$AZURE_OPENAI_ENDPOINT \
     --dry-run=client -o yaml | kubectl apply -f -
-
-# Create registry secrets based on environment
-if [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_TOKEN" ] && [ "$AZURE" = false ] && [ "$DIGITAL_OCEAN" = false ]; then
-    echo "Creating Docker Hub secret..."
-    kubectl create secret docker-registry dockerhub-secret \
-        --docker-server=https://index.docker.io/v1/ \
-        --docker-username=$DOCKER_USERNAME \
-        --docker-password=$DOCKER_TOKEN \
-        --dry-run=client -o yaml | kubectl apply -f -
-else
-    echo "Skipping Docker Hub secret creation for cloud..."
-fi
 
 # Add helm repositories
 echo "Adding Helm repositories..."
@@ -165,14 +133,15 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo add kafka-ui https://provectus.github.io/kafka-ui-charts
 helm repo add kafbat-ui https://kafbat.github.io/helm-charts
 helm repo add jetstack https://charts.jetstack.io
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 
 # Install cert-manager for Let's Encrypt
 echo "Installing cert-manager..."
-helm upgrade --install cert-manager jetstack/cert-manager \
-    --namespace cert-manager \
+helm upgrade --install -n cert-manager cert-manager jetstack/cert-manager \
     --create-namespace \
-    --set crds.enabled=true
+    -f ./cert-manager/values.yaml \
+    --wait
 
 # Install ExternalDNS for Cloudflare
 echo "Installing ExternalDNS..."
@@ -195,33 +164,10 @@ kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager -
 echo "Creating letsencrypt-staging-key secret..."
 kubectl create secret generic letsencrypt-staging-key \
     --dry-run=client -o yaml | kubectl apply -f -
+
 # Create cluster issuer secrets
 echo "Creating Let's Encrypt cluster issuer secrets..."
-kubectl apply -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-staging
-spec:
-  acme:
-    # Email address for expiration notices
-    email: me@richardroberson.dev
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-    privateKeySecretRef:
-      # Secret that will contain the ACME private key
-      name: letsencrypt-staging-key
-    solvers:
-    # Use DNS-01 challenge with Cloudflare
-    - dns01:
-        cloudflare:
-          email: me@richardroberson.dev
-          apiTokenSecretRef:
-            name: cloudflare-dns
-            key: cloudflare_api_token
-      selector:
-        dnsZones:
-        - "richardr.dev"
-EOF
+kubectl apply -f ./cert-manager/cluster-issuer.yaml
 
 kubectl wait --for=condition=Ready clusterissuer/letsencrypt-staging --timeout=60s
 
@@ -232,34 +178,7 @@ kubectl create secret generic kafka-jks \
 
 # Generate SSL certificates for Kafka
 echo "Generating SSL certificates for Kafka..."
-cat <<EOF | kubectl apply -f -
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: crt
-  namespace: default
-spec:
-  secretName: crt-secret
-  duration: 8760h # 1 year
-  renewBefore: 720h # 30 days
-  commonName: "*.richardr.dev"
-  dnsNames:
-  - "*.richardr.dev"
-  issuerRef:
-    name: letsencrypt-staging
-    kind: ClusterIssuer
-  keystores:
-    jks:
-      create: true
-      passwordSecretRef:
-        name: kafka-jks
-        key: keystore-password
-    pkcs12:
-      create: true
-      passwordSecretRef: # Truststore password
-        name: kafka-jks
-        key: truststore-password
-EOF
+kubectl apply -f ./cert-manager/kafka-certificate.yaml
 
 # Wait for the certificate to be ready
 echo "Waiting for Kafka certificate to be ready..."
@@ -267,24 +186,31 @@ kubectl wait --for=condition=Ready certificate/crt --timeout=1000s
 
 kubectl get secrets crt-secret -o yaml
 
-# Install Kafka with any registry secret to prevent pull rate limits
-echo "Installing Kafka..."
-if [ "$DIGITAL_OCEAN" = true ]; then
-    echo "Installing Kafka with DigitalOcean registry secrets..."
-    helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
-        -f kafka-values.yaml \
-        --set image.pullSecrets[0]=research-pod-registry \
-        --wait
-elif [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_TOKEN" ] && [ "$AZURE" = false ]; then
-    echo "Installing Kafka with Docker Hub secrets..."
-    helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
-        -f kafka-values.yaml \
-        --set image.pullSecrets[0]=dockerhub-secret \
-        --wait
+# Install NGINX Ingress Controller
+echo "Installing NGINX Ingress Controller..."
+if [ "$AZURE" = true ]; then
+  # Azure has weird issues with the default NGINX Ingress Controller
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    -f nginx-values.yaml \
+    -f azure-nginx-values.yaml \
+    --wait
 else
-    echo "Installing Kafka without registry secrets..."
-    helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka -f kafka-values.yaml --wait
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    -f nginx-values.yaml \
+    --wait
 fi
+
+# Install Kafka bitnami chart
+echo "Installing Kafka..."
+helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
+  -f kafka-values.yaml \
+  --wait
+
+# Install Redis standalone master
+echo "Installing Redis..."
+helm upgrade --install redis oci://registry-1.docker.io/bitnamicharts/redis \
+    -f redis-values.yaml \
+    --wait
 
 # Create Kafka client pod for topic management
 echo "Creating Kafka client pod..."
@@ -321,6 +247,11 @@ helm upgrade --install research-consumer ./research-consumer \
     --set image.pullPolicy=${IMAGE_PULL_POLICY} \
     --wait
 
+helm upgrade --install web-api ./web-api \
+    --set image.repository=${WEB_API_IMAGE} \
+    --set image.pullPolicy=${IMAGE_PULL_POLICY} \
+    --wait
+
 # Install prometheus stack
 #echo "Installing Prometheus stack..."
 #helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack --wait
@@ -332,15 +263,15 @@ kubectl delete pod kafka-client
 echo "Setup complete!"
 
 # Make cert files
-echo "Creating cert files..."
-mkdir -p ../../web/certs
-kubectl get secret crt-secret -o jsonpath='{.data.tls\.crt}' | base64 -d > ../../web/certs/tls.crt
-kubectl get secret crt-secret -o jsonpath='{.data.tls\.key}' | base64 -d > ../../web/certs/tls.key
+# echo "Creating cert files..."
+# mkdir -p ../../web/certs
+# kubectl get secret crt-secret -o jsonpath='{.data.tls\.crt}' | base64 -d > ../../web/certs/tls.crt
+# kubectl get secret crt-secret -o jsonpath='{.data.tls\.key}' | base64 -d > ../../web/certs/tls.key
 
-# Download Let's Encrypt Staging CA certificate
-curl https://letsencrypt.org/certs/staging/letsencrypt-stg-root-x1.pem -o ../../web/certs/ca.crt
+# # Download Let's Encrypt Staging CA certificate
+# curl https://letsencrypt.org/certs/staging/letsencrypt-stg-root-x1.pem -o ../../web/certs/ca.crt
 
-chmod 600 ../../web/certs/tls.key
-chmod 644 ../../web/certs/tls.crt
-chmod 644 ../../web/certs/ca.crt
+# chmod 600 ../../web/certs/tls.key
+# chmod 644 ../../web/certs/tls.crt
+# chmod 644 ../../web/certs/ca.crt
 
