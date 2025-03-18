@@ -155,7 +155,7 @@ def health():
     """Simple health check endpoint."""
     return jsonify({"status": "ok"})
 
-@app.route('/events/<job_id>')
+@app.route('/v1/events/<job_id>')
 def events(job_id):
     """SSE endpoint for job progress updates."""
     def generate():

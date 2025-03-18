@@ -15,8 +15,8 @@ usage() {
 destroy_kubectl() {
     echo "Destroying kubectl resources..."
     helm uninstall -n cert-manager cert-manager external-dns --wait
-    helm uninstall kafka kafka-ui research-consumer --wait
-    kubectl delete pvc --all
+    helm uninstall kafka kafka-ui research-consumer web-api ingress-nginx redis --wait --ignore-not-found
+    kubectl delete pvc --all --force
 
     echo "Kubectl resources destruction completed!"
 }
@@ -24,7 +24,7 @@ destroy_kubectl() {
 # Function to destroy Azure resources
 destroy_azure() {
     echo "Destroying Azure resources..."
-    destroy_kubectl # Destroy kubectl resources first
+    #destroy_kubectl # Destroy kubectl resources first
     
     # Delete the AKS cluster
     echo "Deleting AKS cluster..."
@@ -37,7 +37,7 @@ destroy_azure() {
     echo "Deleting Azure Container Registry..."
     az acr delete \
         --resource-group $AZ_RESOURCE_GROUP \
-        --name $AZ_ACR_NAME \
+        --name $REGISTRY_NAME \
         --yes
 
     # Delete the resource group
@@ -52,15 +52,15 @@ destroy_azure() {
 # Function to destroy Digital Ocean resources
 destroy_docean() {
     echo "Destroying Digital Ocean resources..."
-    destroy_kubectl # Destroy kubectl resources first
+    #destroy_kubectl # Destroy kubectl resources first
 
     # Delete the Kubernetes cluster
     echo "Deleting Kubernetes cluster..."
-    doctl kubernetes cluster delete $CLUSTER_NAME --force --dangerous
+    doctl kubernetes cluster delete $CLUSTER_NAME-do --force --dangerous
 
     # Delete the container registry
     echo "Deleting container registry..."
-    doctl registry delete $DO_REGISTRY_NAME --force
+    doctl registry delete $REGISTRY_NAME --force
 
     echo "Digital Ocean resources destruction completed!"
 }
@@ -79,7 +79,7 @@ destroy_gcp() {
 
     # Delete the Artifact Registry repository
     echo "Deleting Artifact Registry repository..."
-    gcloud artifacts repositories delete $GCP_REGISTRY_NAME \
+    gcloud artifacts repositories delete $REGISTRY_NAME \
         --location=$GCP_REGION \
         --project $GCP_PROJECT_ID \
         --quiet

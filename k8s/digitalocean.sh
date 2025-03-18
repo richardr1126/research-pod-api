@@ -30,7 +30,7 @@ doctl kubernetes cluster create $CLUSTER_NAME-do \
 doctl kubernetes cluster kubeconfig save $CLUSTER_NAME-do
 
 # Create container registry
-doctl registry create $DO_REGISTRY_NAME \
+doctl registry create $REGISTRY_NAME \
   --region $DO_REGION
 
 # Login to registry
@@ -40,7 +40,7 @@ doctl registry login
 echo "Building and pushing consumer image..."
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
-    -t registry.digitalocean.com/$DO_REGISTRY_NAME/research-consumer:latest \
+    -t registry.digitalocean.com/$REGISTRY_NAME/research-consumer:latest \
     --push \
     ../research
 
@@ -48,7 +48,7 @@ docker buildx build \
 echo "Building and pushing web API image..."
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
-    -t registry.digitalocean.com/$DO_REGISTRY_NAME/web-api:latest \
+    -t registry.digitalocean.com/$REGISTRY_NAME/web-api:latest \
     --push \
     ../web
 

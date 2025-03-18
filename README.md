@@ -51,7 +51,7 @@ sequenceDiagram
     participant Consumer
     
     Note over Client: User initiates research request
-    Client->>WebAPI: POST /v1/api/scrape {query: "ML paper"}
+    Client->>WebAPI: POST /v1/api/pod/create {query: "ML paper"}
     WebAPI->>Redis: HSET job:{jobId} status "QUEUED"
     WebAPI->>Kafka: Produce job {jobId, query}
     WebAPI->>Client: Return {jobId}
@@ -85,7 +85,7 @@ sequenceDiagram
    participant Consumer2
    
    Note over Client: User initiates research request
-   Client->>WebAPI: POST /v1/api/scrape {query: "ML paper"}
+   Client->>WebAPI: POST /v1/api/pod/create {query: "ML paper"}
    WebAPI->>Redis: HSET job:{jobId} status "QUEUED"
    WebAPI->>Kafka: Produce job {jobId, query}
    WebAPI->>Client: Return {jobId}
@@ -131,6 +131,15 @@ sequenceDiagram
 
 ## Getting Started
 
+Endpoints are currently deployed to:
+- Web API:
+  - `https://api.richardr.dev/v1/api/pod/create`
+  - `https://api.richardr.dev/v1/api/pod/status/<job_id>`
+- Kafka monitoring: `https://kafkaui.richardr.dev`
+- Event stream: `https://research-consumer-{0|1|2}.richardr.dev/v1/events/{job_id}`
+
+> **Note**: The deployed version is set up on my domain for now. There are 3 consumers running to handle requests.
+
 ### Option 1: Local Setup (Easiest)
 
 1. Get the code and set up env:
@@ -157,14 +166,14 @@ docker compose up --build
 
 5. Try it out:
 ```bash
-curl -X POST http://localhost:8888/v1/api/scrape \
+curl -X POST http://localhost:8888/v1/api/pod/create \
   -H "Content-Type: application/json" \
   -d '{"query": "latest developments in quantum computing"}'
 ```
 
 6. Connect to stream:
 ```bash
-curl -N -H "Accept: text/event-stream" http://localhost:8081/events/{job_id}
+curl -N -H "Accept: text/event-stream" http://localhost:8081/v1/events/{job_id}
 ```   
 
 **Important**: See [k8s/README.md](k8s/README.md) for:
@@ -172,17 +181,99 @@ curl -N -H "Accept: text/event-stream" http://localhost:8081/events/{job_id}
 - Troubleshooting
 - Cleanup procedures
 
-### Option 2: Cloud Setup
+### Option 2: Cloud Setup (AKS/DO/GCP)
 
-Deployment to Azure Kubernetes Service (AKS) or Digital Ocean Kubernetes. 
+Deployment to Kubernetes is supported on:
+- Azure Kubernetes Service (AKS)
+- Digital Ocean Kubernetes
+- Google Cloud Platform (GCP)
 
-For cloud deployment instructions, see:
-- Azure setup: Follow `azure.sh` instructions in [k8s/README.md](k8s/README.md#2-azure-kubernetes-service-aks)
-- Digital Ocean setup: Follow `digitalocean.sh` instructions in [k8s/README.md](k8s/README.md#3-digital-ocean-kubernetes)
+For detailed cloud deployment instructions, see [k8s/README.md](k8s/README.md).
+
+Each cloud provider has a dedicated script:
+```bash
+# For Azure
+./k8s/azure.sh
+
+# For Digital Ocean
+./k8s/digitalocean.sh
+
+# For Google Cloud
+./k8s/gcp.sh
+```
+
+The scripts will:
+- Create a Kubernetes cluster
+- Set up container registry
+- Configure DNS settings
+- Deploy required services including:
+  - Kafka with SSL/TLS encryption
+  - Redis
+  - Kafka UI
+  - External DNS
+  - Cert Manager
+  - NGINX Ingress Controller
+  - Research Consumer service
+  - Web API service
 
 ## API Details
 
-### POST /v1/api/scrape
+### Testing Flow
+
+1. Start a research job:
+```bash
+curl -X POST http://localhost:8888/v1/api/pod/create \
+  -H "Content-Type: application/json" \
+  -d '{"query": "quantum computing advances 2024"}'
+
+# Response:
+{
+  "status": "success",
+  "message": "Scrape request queued",
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "events_url": "http://localhost:8081/v1/events/550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+2. Check job status:
+```bash
+curl http://localhost:8888/v1/api/pod/status/550e8400-e29b-41d4-a716-446655440000
+
+# Response:
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "PROCESSING",
+  "progress": 33,
+  "query": "quantum computing advances 2024",
+  "events_url": "http://localhost:8081/v1/events/550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+3. Connect to event stream to receive real-time updates:
+```bash
+curl -N http://localhost:8081/v1/events/550e8400-e29b-41d4-a716-446655440000
+
+# You'll receive SSE events like:
+event: status
+data: {"status": "PROCESSING", "progress": 0, "message": "Starting paper collection"}
+
+event: status
+data: {"status": "IN_PROGRESS", "progress": 33, "message": "Found 5 relevant papers"}
+
+event: papers
+data: {"papers": ["Paper 1 Title", "Paper 2 Title", ...]}
+
+event: status
+data: {"status": "IN_PROGRESS", "progress": 66, "message": "Analyzing papers"}
+
+event: analysis
+data: {"key_findings": "Recent breakthrough in..."}
+
+event: status
+data: {"status": "COMPLETED", "progress": 100, "message": "Analysis complete"}
+```
+
+### POST /v1/api/pod/create
 This is how you request a paper analysis.
 
 Send this:
@@ -201,13 +292,69 @@ You'll get back:
 }
 ```
 
+### GET /v1/api/pod/status/{job_id}
+Get job status:
+```json
+{
+  "job_id": "uuid-string",
+  "status": "QUEUED|ASSIGNED|PROCESSING|IN_PROGRESS|COMPLETED|ERROR",
+  "progress": 0-100,
+  "query": "original query",
+  "events_url": "https://research-consumer-{id}.richardr.dev/v1/events/{job_id}"
+}
+```
+
+### GET /v1/events/{job_id}
+Server-Sent Events (SSE) endpoint for real-time updates.
+
+Events:
+- `status`: Job status updates
+- `papers`: List of papers being analyzed
+- `analysis`: Intermediate analysis results
+- `error`: Any errors that occur
+
+Example event types:
+```json
+// Status event
+{
+  "status": "IN_PROGRESS",
+  "progress": 50,
+  "message": "Processing papers"
+}
+
+// Papers event
+{
+  "papers": [
+    {
+      "title": "Recent Advances in Quantum Computing",
+      "url": "https://arxiv.org/abs/...",
+      "summary": "Brief overview..."
+    }
+  ]
+}
+
+// Analysis event
+{
+  "key_findings": "Text summarizing findings...",
+  "related_topics": ["Topic 1", "Topic 2"]
+}
+
+// Error event
+{
+  "error": "Error message",
+  "code": "ERROR_CODE"
+}
+```
+
 ### GET /health
 Checks if everything's running ok.
 
 Returns:
 ```json
 {
-  "status": "healthy"
+  "status": "healthy",
+  "redis": "healthy|unhealthy",
+  "kafka_producer": "healthy|unhealthy"
 }
 ```
 
@@ -221,6 +368,9 @@ research-pod-api/
 ├── web/               # The API service
 │   └── server.py      # Main Flask app
 ├── k8s/               # Kubernetes stuff
+│   ├── azure.sh       # Azure setup
+│   ├── digitalocean.sh # DO setup 
+│   ├── gcp.sh         # GCP setup
 │   └── helm/          # Deployment configs
 └── docker-compose.yml # Local setup
 ```

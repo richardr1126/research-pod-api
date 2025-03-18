@@ -1,25 +1,5 @@
 #!/bin/bash
 
-# Add completion function at the start of the script
-_setup_completion() {
-    local cur prev opts
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="--build --docean --azure --gcp --clear"
-
-    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-    return 0
-}
-
-# Register the completion function
-complete -F _setup_completion setup.sh
-
-# Only run the completion if we're being sourced
-if [ "${BASH_SOURCE[0]}" != "${0}" ]; then
-    return
-fi
-
 # Source shared environment variables
 source "$(dirname "$0")/../env.sh"
 
@@ -52,7 +32,7 @@ if [ "$CLEAR" = true ]; then
     echo "Clearing existing resources..."
     helm uninstall -n cert-manager cert-manager external-dns --wait --ignore-not-found
     helm uninstall kafka kafka-ui research-consumer --wait --ignore-not-found
-    kubectl delete secrets --all
+    #kubectl delete secrets --all
     kubectl delete clusterissuer --all
     kubectl delete certificaterequests.cert-manager.io --all
     kubectl delete certificates.cert-manager.io --all
@@ -81,13 +61,13 @@ fi
 
 # Set image repository based on registry choice
 if [ "$DIGITAL_OCEAN" = true ]; then
-    REGISTRY="registry.digitalocean.com/${DO_REGISTRY_NAME}"
+    REGISTRY="registry.digitalocean.com/${REGISTRY_NAME}"
     echo "Using DigitalOcean registry: $REGISTRY"
 elif [ "$AZURE" = true ]; then
-    REGISTRY="${AZ_ACR_NAME}.azurecr.io"
+    REGISTRY="${REGISTRY_NAME}.azurecr.io"
     echo "Using Azure Container Registry: $REGISTRY"
 elif [ "$GCP" = true ]; then
-    REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REGISTRY_NAME}"
+    REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
     echo "Using Google Cloud Artifact Registry: $REGISTRY"
 fi
 
@@ -113,7 +93,7 @@ if [ "$BUILD" = true ]; then
     elif [ "$AZURE" = true ]; then
         echo "Building and pushing Docker images to Azure Container Registry..."
         # Ensure we're logged into ACR
-        az acr login --name $AZ_ACR_NAME
+        az acr login --name $REGISTRY_NAME
 
     elif [ "$GCP" = true ]; then
         echo "Building and pushing Docker images to Google Artifact Registry..."
@@ -268,7 +248,7 @@ if [ "$DIGITAL_OCEAN" = true ]; then
     echo "Installing Kafka with DigitalOcean registry secrets..."
     helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
         -f kafka-values.yaml \
-        --set image.pullSecrets[0]=research-pod-registry \
+        --set image.pullSecrets[0]=researchpodcontainerregistry \
         --wait
 else
     echo "Installing Kafka without registry secrets..."
@@ -332,15 +312,15 @@ kubectl delete pod kafka-client
 echo "Setup complete!"
 
 # Make cert files
-echo "Creating cert files..."
-mkdir -p ../../web/certs
-kubectl get secret crt-secret -o jsonpath='{.data.tls\.crt}' | base64 -d > ../../web/certs/tls.crt
-kubectl get secret crt-secret -o jsonpath='{.data.tls\.key}' | base64 -d > ../../web/certs/tls.key
+# echo "Creating cert files..."
+# mkdir -p ../../web/certs
+# kubectl get secret crt-secret -o jsonpath='{.data.tls\.crt}' | base64 -d > ../../web/certs/tls.crt
+# kubectl get secret crt-secret -o jsonpath='{.data.tls\.key}' | base64 -d > ../../web/certs/tls.key
 
-# Download Let's Encrypt Staging CA certificate
-curl https://letsencrypt.org/certs/staging/letsencrypt-stg-root-x1.pem -o ../../web/certs/ca.crt
+# # Download Let's Encrypt Staging CA certificate
+# curl https://letsencrypt.org/certs/staging/letsencrypt-stg-root-x1.pem -o ../../web/certs/ca.crt
 
-chmod 600 ../../web/certs/tls.key
-chmod 644 ../../web/certs/tls.crt
-chmod 644 ../../web/certs/ca.crt
+# chmod 600 ../../web/certs/tls.key
+# chmod 644 ../../web/certs/tls.crt
+# chmod 644 ../../web/certs/ca.crt
 

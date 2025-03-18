@@ -16,7 +16,7 @@ done
 # Source shared environment variables
 source "$(dirname "$0")/env.sh"
 
-# Authenticate with Google Cloud (you'll need to be logged in)
+# Authenticate with Google Cloud
 # gcloud auth login
 # gcloud config set project $GCP_PROJECT_ID
 
@@ -48,7 +48,7 @@ gcloud container clusters get-credentials $CLUSTER_NAME-gcp \
 
 # Create Artifact Registry repository
 echo "Creating Artifact Registry repository..."
-gcloud artifacts repositories create $GCP_REGISTRY_NAME \
+gcloud artifacts repositories create $REGISTRY_NAME \
     --repository-format=docker \
     --location=$GCP_REGION \
     --description="Research Pod Container Registry"
@@ -58,7 +58,7 @@ echo "Configuring Docker authentication..."
 gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev
 
 # Build and push multi-architecture images
-REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REGISTRY_NAME}"
+REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
 
 echo "Building and pushing consumer image..."
 docker buildx build \

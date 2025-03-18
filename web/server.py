@@ -49,20 +49,20 @@ except Exception as e:
     logger.error(f"Failed to connect to Kafka: {str(e)}")
     producer = None
 
-def get_consumer_url(job_id):
-    """Get the consumer URL for a job."""
+def get_events_url(job_id):
+    """Get the events URL for a job."""
     # Check if we're running in Kubernetes
     if os.getenv('KUBERNETES_SERVICE_HOST'):
         # Get assigned consumer from Redis
         consumer_id = redis_client.hget(f"job:{job_id}", "consumer")
         if consumer_id:
-            return f"https://research-consumer-{consumer_id}.richardr.dev"
+            return f"https://research-consumer-{consumer_id}.richardr.dev/v1/events/{job_id}"
         else:
             return None
     # Default to localhost for local development
-    return "http://localhost:8081"
+    return f"http://localhost:8888/v1/events/{job_id}"
 
-@server.route('/v1/api/scrape', methods=['POST'])
+@server.route('/v1/api/pod/create', methods=['POST'])
 def scrape():
     try:
         if not producer:
@@ -115,7 +115,7 @@ def scrape():
         logger.error(f"Error in scrape endpoint: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@server.route('/v1/api/jobs/<job_id>', methods=['GET'])
+@server.route('/v1/api/pod/status/<job_id>', methods=['GET'])
 def get_job(job_id):
     """Get job status and details."""
     try:
@@ -131,9 +131,8 @@ def get_job(job_id):
         }
         
         # Get consumer URL
-        consumer_url = get_consumer_url(job_id)
-        if consumer_url:
-            events_url = f"{consumer_url}/events/{job_id}"
+        events_url = get_events_url(job_id)
+        if events_url:
             response["events_url"] = events_url
             
         return jsonify(response), 200
