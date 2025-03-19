@@ -57,13 +57,12 @@ chain = (
     | StrOutputParser()
 )
 
-def add_papers(papers: List[Dict[str, Any]], job_id: str = None):
+def add_papers(papers: List[Dict[str, Any]]):
     """
     Add research papers to the vector store.
     
     Args:
         papers: List of paper dictionaries containing metadata and content
-        job_id: Optional job ID to associate with the documents (not used for filtering)
     """
     for paper in papers:
         # Create metadata dictionary

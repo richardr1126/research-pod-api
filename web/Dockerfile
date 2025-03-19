@@ -1,5 +1,14 @@
 FROM python:3.12-slim AS base
 
+# Install system dependencies for psycopg2
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        python3-dev \
+        libpq-dev \
+        postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Install dependencies
@@ -21,5 +30,3 @@ EXPOSE 8888
 
 # Run with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8888", "--workers", "1", "server:server"]
-# gunicorn --bind 0.0.0.0:8080 --workers 1 server:server
-# flask run --port 8888

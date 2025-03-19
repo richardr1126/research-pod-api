@@ -26,8 +26,6 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 
-# Dictionary to store job progress
-job_progress = {}
 # Queue for SSE updates
 progress_queue = Queue()
 
@@ -60,7 +58,7 @@ redis_client = redis.Redis.from_url(
 hostname = socket.gethostname()
 consumer_id = hostname.split('-')[-1] if '-' in hostname else '0'
 
-def send_progress_update(job_id: str, status: str, progress: int, message: str = None):
+def send_progress_update(pod_id: str, status: str, progress: int, message: str = None):
     """Send a progress update to both Redis and SSE stream."""
     # Update Redis
     update_data = {
@@ -71,11 +69,11 @@ def send_progress_update(job_id: str, status: str, progress: int, message: str =
     if message:
         update_data["message"] = message
     
-    redis_client.hset(f"job:{job_id}", mapping=update_data)
+    redis_client.hset(f"pod:{pod_id}", mapping=update_data)
     
     # Send to SSE stream
     update = {
-        "job_id": job_id,
+        "pod_id": pod_id,
         "status": status,
         "progress": progress
     }
@@ -88,88 +86,81 @@ def process_message(message):
     try:
         data = message.value
         query = data.get('query')
-        job_id = data.get('job_id')
+        pod_id = data.get('pod_id')
         
-        if not query:
+        if not query or not pod_id:
             return
             
         # Update Redis with consumer assignment
-        redis_client.hset(f"job:{job_id}", 
+        redis_client.hset(f"pod:{pod_id}", 
             mapping={
                 "status": "ASSIGNED",
                 "consumer": consumer_id
             }
         )
         
-        # Initialize job progress
-        job_progress[job_id] = {"status": "PROCESSING", "progress": 0}
-        send_progress_update(job_id, "PROCESSING", 0, "Started processing request")
+        send_progress_update(pod_id, "PROCESSING", 0, "Started processing request")
         
-        logger.info(f"Processing scrape request for job {job_id}: {query}")
+        logger.info(f"Processing scrape request for pod {pod_id}: {query}")
         
-        send_progress_update(job_id, "IN_PROGRESS", 33, "Scraping papers")
+        send_progress_update(pod_id, "IN_PROGRESS", 33, "Scraping papers")
         # Scrape papers
         papers = scrape_arxiv(query, max_papers=3)
-        logger.info(f"Scraped {len(papers)} results for job {job_id}")
-
-
-        # Web search
+        logger.info(f"Scraped {len(papers)} results for pod {pod_id}")
         
-        #########################################################
-        
-        send_progress_update(job_id, "IN_PROGRESS", 66, "Adding papers to vector store")
+        send_progress_update(pod_id, "IN_PROGRESS", 66, "Adding papers to vector store")
         # Add papers to vector store
-        rag_chain.add_papers(papers, job_id=job_id)
-        logger.info(f"Added papers to vector store for job {job_id}")
+        rag_chain.add_papers(papers)
+        logger.info(f"Added papers to vector store for pod {pod_id}")
         
-        send_progress_update(job_id, "IN_PROGRESS", 90, "Generating summary")
+        send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating summary")
         # Generate summary
         summary = rag_chain.query(query)
         
         # Prepare response
         response = {
-            "job_id": job_id,
+            "pod_id": pod_id,
             "query": query,
             "summary": summary
         }
 
         # Send response to Kafka for now and mark as complete
-        producer.send('research-results', key=job_id.encode('utf-8'), value=response)
+        producer.send('research-results', key=pod_id.encode('utf-8'), value=response)
         producer.flush()
-        send_progress_update(job_id, "COMPLETED", 100, "Processing complete")
-        logger.info(f"Sent research results for job {job_id}")
+        send_progress_update(pod_id, "COMPLETED", 100, "Processing complete")
+        logger.info(f"Sent research results for pod {pod_id}")
         
     except Exception as e:
         logger.error(f"Error processing message: {str(e)}", exc_info=True)
         error_response = {
-            "job_id": job_id if 'job_id' in locals() else None,
+            "pod_id": pod_id if 'pod_id' in locals() else None,
             "query": query if 'query' in locals() else None,
             "error": str(e)
         }
         producer.send('research-errors', value=error_response)
         producer.flush()
-        send_progress_update(job_id, "ERROR", 0, str(e))
+        send_progress_update(pod_id, "ERROR", 0, str(e))
 
 @app.route('/health')
 def health():
     """Simple health check endpoint."""
     return jsonify({"status": "ok"})
 
-@app.route('/v1/events/<job_id>')
-def events(job_id):
-    """SSE endpoint for job progress updates."""
+@app.route('/v1/events/<pod_id>')
+def events(pod_id):
+    """SSE endpoint for pod progress updates."""
     def generate():
         while True:
             # Get progress update from queue
             try:
                 update = progress_queue.get(timeout=30)  # 30 second timeout
-                if update["job_id"] == job_id:
+                if update["pod_id"] == pod_id:
                     yield f"data: {json.dumps(update)}\n\n"
-                    # If job is complete or errored, stop streaming
+                    # If pod is complete or errored, stop streaming
                     if update["status"] in ["COMPLETED", "ERROR"]:
                         break
                 else:
-                    # Put back updates for other jobs
+                    # Put back updates for other pods
                     progress_queue.put(update)
             except Exception:
                 # Send keepalive comment every 30 seconds
