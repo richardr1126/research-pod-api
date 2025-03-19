@@ -27,13 +27,13 @@ echo "Creating AKS cluster..."
 az aks create \
   --resource-group $AZ_RESOURCE_GROUP \
   --name $CLUSTER_NAME-az \
-  --node-count $AZ_NODE_COUNT \
+  --node-count $MIN_NODES \
   --node-vm-size $AZ_NODE_SIZE \
+  --enable-addons monitoring \
+  --generate-ssh-keys \
   --enable-cluster-autoscaler \
   --min-count $MIN_NODES \
   --max-count $MAX_NODES \
-  --enable-addons monitoring \
-  --generate-ssh-keys
 
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
@@ -60,25 +60,25 @@ az acr login --name $REGISTRY_NAME
 # Build and push multi-architecture images
 echo "Building and pushing consumer image..."
 docker buildx build \
-    --platform linux/amd64,linux/arm64 \
-    -t ${REGISTRY_NAME}.azurecr.io/research-consumer:latest \
-    --push \
-    ../research
+	--platform linux/amd64,linux/arm64 \
+	-t ${REGISTRY_NAME}.azurecr.io/research-consumer:latest \
+	--push \
+	../research
 
 echo "Building and pushing web API image..."
 docker buildx build \
-    --platform linux/amd64,linux/arm64 \
-    -t ${REGISTRY_NAME}.azurecr.io/web-api:latest \
-    --push \
-    ../web
+	--platform linux/amd64,linux/arm64 \
+	-t ${REGISTRY_NAME}.azurecr.io/web-api:latest \
+	--push \
+	../web
 
 # Run the setup script with Azure configuration unless --no-install was specified
 echo "Running main setup script..."
 cd helm
 if [ "$RUN_INSTALL" = true ]; then
-    ./setup.sh --azure
+	./setup.sh --azure
 else
-    echo "Skipping helm setup (--no-install flag was used)"
+	echo "Skipping helm setup (--no-install flag was used)"
 fi
 
 echo "Azure setup complete! You can now access your cluster with kubectl."

@@ -123,7 +123,13 @@ The setup script performs the following steps:
    - Generates SSL certificates for Kafka
    - Installs NGINX Ingress Controller (with Azure-specific configuration if needed)
 
-6. **Service Deployment**:
+6. **Database Setup**:
+   - Installs YugabyteDB cluster with TLS enabled
+   - Creates necessary users and databases
+   - Copies TLS certificates to required namespaces
+   - Sets up 3 master and 3 tserver nodes for high availability
+
+7. **Service Deployment**:
    - Deploys Kafka with SSL/TLS encryption
    - Sets up Redis standalone master
    - Creates required Kafka topics:
@@ -161,6 +167,24 @@ The setup includes two main cert-manager resources:
 - Persistent volume storage
 - No auth or outside access, only internal service access
 
+### YugabyteDB Configuration
+
+- Distributed SQL database with PostgreSQL compatibility
+- TLS encryption enabled using cert-manager
+- 3 master and 3 tserver nodes for high availability
+- YSQL authentication with custom user/password
+- Client certificate authentication for secure connections
+- Resource requests and limits configured for production use
+
+### Connect to YugabyteDB
+
+Use the included script to connect to YugabyteDB:
+```bash
+./ybdb.sh
+```
+
+This opens a PostgreSQL-compatible shell connected to the database cluster.
+
 ## Verify Your Setup
 
 1. Check pod status:
@@ -177,6 +201,12 @@ kubectl get svc
 3. Check certificates:
 ```bash
 kubectl get certificates
+```
+
+4. Verify YugabyteDB:
+```bash
+kubectl get pods -n yugabyte
+kubectl get svc -n yugabyte
 ```
 
 ## Monitoring and Management
@@ -216,17 +246,36 @@ kubectl describe pod <pod-name>
 kubectl logs <pod-name>
 ```
 
-3. Image pull errors:
+3. Database issues:
+   - Check YugabyteDB master status:
+     ```bash
+     kubectl get pods -n yugabyte -l app=yb-master
+     ```
+   - Check YugabyteDB tserver status:
+     ```bash
+     kubectl get pods -n yugabyte -l app=yb-tserver
+     ```
+   - Verify TLS certificates:
+     ```bash
+     kubectl get secrets -n yugabyte yugabyte-tls-client-cert
+     ```
+   - Check database logs:
+     ```bash
+     kubectl logs -n yugabyte -l app=yb-master
+     kubectl logs -n yugabyte -l app=yb-tserver
+     ```
+
+4. Image pull errors:
    - Check registry credentials
    - Verify image names and tags
    - Ensure proper registry authentication
 
-4. Kafka connectivity issues:
+5. Kafka connectivity issues:
    - Check SSL certificate status
    - Verify broker endpoints
    - Check topic creation status with kafka-client pod
 
-5. DNS issues:
+6. DNS issues:
    - Verify Cloudflare API token
    - Check External DNS pod logs
    - Ensure DNS records are propagating

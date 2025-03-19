@@ -1,0 +1,49 @@
+tls:
+  enabled: true
+  certManager:
+    enabled: true
+
+authCredentials:
+  ysql:
+    user: "researchpod"
+    password: "research-pod-password"
+
+master:
+  readinessProbe:
+    enabled: true
+
+tserver:
+  readinessProbe:
+    enabled: true
+
+storage:
+  master:
+    count: 1
+    size: 20Gi
+  tserver:
+    count: 1
+    size: 20Gi
+
+resource:
+  master:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 1.5Gi
+  tserver:
+    requests:
+      cpu: 500m
+      memory: 1.5Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+
+replicas:
+  master: 3
+  tserver: 3
+
+partition:
+  master: 3
+  tserver: 3
