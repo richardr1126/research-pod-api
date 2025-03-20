@@ -29,14 +29,30 @@ done
 
 # Clear existing resources if --clear flag is set
 if [ "$CLEAR" = true ]; then
-  echo "Clearing existing resources..."
+  echo "Running helm uninstall cert-manager, external-dns..."
   helm uninstall -n cert-manager cert-manager external-dns --wait --ignore-not-found
-  helm uninstall kafka kafka-ui research-consumer --wait --ignore-not-found
-  #kubectl delete secrets --all
-  kubectl delete clusterissuer --all
-  kubectl delete certificaterequests.cert-manager.io --all
-  kubectl delete certificates.cert-manager.io --all
 
+  echo "Running helm uninstall yugabyte..."
+  helm uninstall -n yugabyte yugabyte --wait --ignore-not-found
+
+  echo "Running helm uninstall kafka, kafka-ui, research-consumer, web-api, ingress-nginx, redis..."
+  helm uninstall kafka kafka-ui research-consumer web-api redis ingress-nginx --wait --ignore-not-found
+  
+  echo "Deleting cert-manager CRDs..."
+  kubectl delete crd certificates.cert-manager.io --ignore-not-found
+  kubectl delete crd certificaterequests.cert-manager.io --ignore-not-found
+  kubectl delete crd challenges.acme.cert-manager.io --ignore-not-found
+  kubectl delete crd clusterissuers.cert-manager.io --ignore-not-found
+  kubectl delete crd issuers.cert-manager.io --ignore-not-found
+  kubectl delete crd orders.acme.cert-manager.io --ignore-not-found
+
+  echo "Deleting YugabyteDB CRDs..."
+  kubectl delete crd ybclusters.yugabyte.com --ignore-not-found
+
+  echo "Deleting namespaces and persistent volume claims..."
+  kubectl delete namespaces yugabyte cert-manager --wait --ignore-not-found
+  kubectl delete pvc --all --force
+  
   sleep 10
 fi
 
@@ -162,30 +178,15 @@ kubectl wait --for=condition=Available deployment/cert-manager-cainjector -n cer
 kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager --timeout=60s
 
 # Create keystore password secret first
-echo "Creating letsencrypt-staging-key secret..."
-kubectl create secret generic letsencrypt-staging-key \
+echo "Creating letsencrypt-prod-key secret..."
+kubectl create secret generic letsencrypt-prod-key \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Create cluster issuer secrets
 echo "Creating Let's Encrypt cluster issuer secrets..."
 kubectl apply -f ./cert-manager/cluster-issuer.yaml
 
-kubectl wait --for=condition=Ready clusterissuer/letsencrypt-staging --timeout=60s
-
-kubectl create secret generic kafka-jks \
-  --from-literal=keystore-password=kafka123 \
-  --from-literal=truststore-password=kafka123 \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# Generate SSL certificates for Kafka
-echo "Generating SSL certificates for Kafka..."
-kubectl apply -f ./cert-manager/kafka-certificate.yaml
-
-# Wait for the certificate to be ready
-echo "Waiting for Kafka certificate to be ready..."
-kubectl wait --for=condition=Ready certificate/crt --timeout=1000s
-
-kubectl get secrets crt-secret -o yaml
+kubectl wait --for=condition=Ready clusterissuer/letsencrypt-prod --timeout=60s
 
 # Install NGINX Ingress Controller
 echo "Installing NGINX Ingress Controller..."
@@ -213,11 +214,31 @@ helm upgrade --install redis oci://registry-1.docker.io/bitnamicharts/redis \
   -f redis-values.yaml \
   --wait
 
+echo "Saving Kafka TLS certificates..."
+# Create a directory for certificates if it doesn't exist
+mkdir -p ./certs
+# Extract the CA certificate to a separate file
+kubectl get secret kafka-tls -o jsonpath='{.data.kafka-ca\.crt}' | base64 -d > ./certs/kafka-ca.crt
+# Create the client.properties file with proper formatting
+cat > ./certs/client.properties << EOF
+security.protocol=SSL
+ssl.truststore.type=PEM
+ssl.truststore.location=/tmp/kafka-ca.crt
+EOF
+
 # Create Kafka client pod for topic management
 echo "Creating Kafka client pod..."
 kubectl run kafka-client --restart='Never' --image docker.io/bitnami/kafka:3.9.0-debian-12-r12 --namespace default --command -- sleep infinity
 echo "Waiting for Kafka client pod to be ready..."
 kubectl wait --for=condition=Ready pod/kafka-client --timeout=60s
+
+# Copy both the properties and certificate files to the pod
+echo "Copying Kafka certificates to pod..."
+kubectl cp ./certs/kafka-ca.crt kafka-client:/tmp/kafka-ca.crt
+kubectl cp ./certs/client.properties kafka-client:/tmp/client.properties
+
+# Set proper permissions
+kubectl exec kafka-client -- chmod 644 /tmp/kafka-ca.crt
 
 echo "Creating Kafka topics..."
 # Create Kafka topics with common settings
@@ -232,6 +253,7 @@ for topic in "${TOPICS[@]}"; do
     --create \
     --if-not-exists \
     --bootstrap-server kafka.default.svc.cluster.local:9092 \
+    --command-config /tmp/client.properties \
     --replication-factor 3 \
     --partitions 3 \
     --topic "$topic" \

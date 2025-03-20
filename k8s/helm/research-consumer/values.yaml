@@ -124,11 +124,27 @@ autoscaling:
 volumes:
   - name: data
     emptyDir: {}
-
+  - name: yugabyte-certs
+    secret:
+      secretName: yugabyte-tls-client-cert
+      optional: false
+      defaultMode: 0600
+  - name: kafka-tls
+    secret:
+      secretName: kafka-tls
+      optional: false
+      defaultMode: 0600
+  
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
   - name: data
     mountPath: /app/data
+  - name: yugabyte-certs
+    mountPath: /etc/yugabyte/certs
+    readOnly: true
+  - name: kafka-tls
+    mountPath: /etc/kafka/certs
+    readOnly: true
 
 nodeSelector: {}
 

@@ -84,7 +84,7 @@ ingress:
   enabled: true
   className: "nginx"
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-staging
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     external-dns.alpha.kubernetes.io/hostname: api.richardr.dev
     external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
   hosts:
@@ -140,6 +140,11 @@ volumes:
       secretName: yugabyte-tls-client-cert
       optional: false
       defaultMode: 0600
+  - name: kafka-tls
+    secret:
+      secretName: kafka-tls
+      optional: false
+      defaultMode: 0600
 # - name: foo
 #   secret:
 #     secretName: mysecret
@@ -149,6 +154,9 @@ volumes:
 volumeMounts:
   - name: yugabyte-certs
     mountPath: /etc/yugabyte/certs
+    readOnly: true
+  - name: kafka-tls
+    mountPath: /etc/kafka/certs
     readOnly: true
 # - name: foo
 #   mountPath: "/etc/foo"

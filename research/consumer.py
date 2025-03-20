@@ -40,12 +40,17 @@ consumer = KafkaConsumer( # Consumer for scrape requests
     max_poll_interval_ms=600000,  # 10 minutes instead of default 5 minutes
     max_poll_records=1,           # Process one record at a time
     session_timeout_ms=60000,     # 1 minute session timeout
-
+    #security_protocol='SSL',
+    #ssl_check_hostname=True,
+    #ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
 )
 
 producer = KafkaProducer( # Producer to return research results
     bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+    #security_protocol='SSL',
+    #ssl_check_hostname=True,
+    #ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
 )
 
 # Initialize Redis client
