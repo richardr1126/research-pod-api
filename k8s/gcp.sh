@@ -16,7 +16,7 @@ done
 # Source shared environment variables
 source "$(dirname "$0")/env.sh"
 
-# Authenticate with Google Cloud (you'll need to be logged in)
+# Authenticate with Google Cloud
 # gcloud auth login
 # gcloud config set project $GCP_PROJECT_ID
 
@@ -30,15 +30,15 @@ gcloud services enable container.googleapis.com \
 echo "Creating GKE cluster..."
 gcloud container clusters create $CLUSTER_NAME-gcp \
     --project $GCP_PROJECT_ID \
-    --region $GCP_REGION \
+    --zone $GCP_ZONE \
     --machine-type $GCP_MACHINE_TYPE \
     --num-nodes $MIN_NODES \
+    --enable-autorepair \
+    --enable-autoupgrade \
+    --enable-ip-alias \
     --enable-autoscaling \
     --min-nodes $MIN_NODES \
     --max-nodes $MAX_NODES \
-    --enable-autorepair \
-    --enable-autoupgrade \
-    --enable-ip-alias
 
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
@@ -48,7 +48,7 @@ gcloud container clusters get-credentials $CLUSTER_NAME-gcp \
 
 # Create Artifact Registry repository
 echo "Creating Artifact Registry repository..."
-gcloud artifacts repositories create $GCP_REGISTRY_NAME \
+gcloud artifacts repositories create $REGISTRY_NAME \
     --repository-format=docker \
     --location=$GCP_REGION \
     --description="Research Pod Container Registry"
@@ -57,8 +57,17 @@ gcloud artifacts repositories create $GCP_REGISTRY_NAME \
 echo "Configuring Docker authentication..."
 gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev
 
+# Create GCP registry pull secret
+echo "Creating GCP registry pull secret..."
+kubectl create secret docker-registry $REGISTRY_NAME \
+    --docker-server=${GCP_REGION}-docker.pkg.dev \
+    --docker-username=_json_key \
+    --docker-email=not@used.com \
+    --docker-password="$(gcloud auth print-access-token)" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
 # Build and push multi-architecture images
-REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REGISTRY_NAME}"
+REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
 
 echo "Building and pushing consumer image..."
 docker buildx build \

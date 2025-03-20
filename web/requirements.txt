@@ -3,3 +3,7 @@ python-dotenv
 flask-cors
 gunicorn
 kafka-python
+redis
+psycopg2-yugabytedb
+Flask-SQLAlchemy
+uuid_v7

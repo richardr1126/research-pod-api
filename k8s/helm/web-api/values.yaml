@@ -1,28 +1,40 @@
-# Default values for research-cluster.
+# Default values for web-api.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
-replicaCount: 3
+replicaCount: 2
+
 
 env:
 - name: KAFKA_BOOTSTRAP_SERVERS
-  value: kafka.default.svc.cluster.local:9092
+  value: kafka-controller-0.kafka-controller-headless.default.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.default.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.default.svc.cluster.local:9092
 - name: REDIS_URL
   value: redis://redis-master.default.svc.cluster.local:6379
-
-envFrom:
-- secretRef:
-    name: api-secrets
+- name: SQLALCHEMY_DATABASE_URI
+  value: "postgresql+psycopg2://researchpod:research-pod-password@yb-tserver-0.yb-tservers.yugabyte.svc.cluster.local,yb-tserver-1.yb-tservers.yugabyte.svc.cluster.local,yb-tserver-2.yb-tservers.yugabyte.svc.cluster.local:5433/researchpod?sslmode=verify-full&sslcert=/etc/yugabyte/certs/tls.crt&sslkey=/etc/yugabyte/certs/tls.key&sslrootcert=/etc/yugabyte/certs/ca.crt"
+#     "postgresql+psycopg2://researchpod:research-pod-password@"
+#     "yb-tserver-0.yb-tservers.yugabyte.svc.cluster.local,"
+#     "yb-tserver-1.yb-tservers.yugabyte.svc.cluster.local,"
+#     "yb-tserver-2.yb-tservers.yugabyte.svc.cluster.local:5433"
+#     "/researchpod"
+#     "?sslmode=verify-full"
+#     "&sslcert=/etc/yugabyte/certs/tls.crt"
+#     "&sslkey=/etc/yugabyte/certs/tls.key"
+#     "&sslrootcert=/etc/yugabyte/certs/ca.crt"
+- name: FLASK_ENV
+  value: production
+- name: FLASK_APP
+  value: server:server
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: research-pod-research-consumer
+  repository: research-pod-web-api
   # This sets the pull policy for images.
-  pullPolicy: Never
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
-
+  
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: 
   - name: researchpodcontainerregistry
@@ -62,28 +74,28 @@ securityContext: {}
 
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
-  enabled: true
-  type: LoadBalancer
-  port: 80
-  annotations:
-    external-dns.alpha.kubernetes.io/hostname: "{{ .targetPod }}.richardr.dev"     
+  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  type: ClusterIP
+  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
+  port: 8888
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: api.richardr.dev
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
   hosts:
-    - host: chart-example.local
+    - host: api.richardr.dev
       paths:
         - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+          pathType: Prefix
+  tls:
+    - secretName: web-api-tls
+      hosts:
+        - api.richardr.dev
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -97,20 +109,21 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-# This is to setup the liveness and readiness probes
+# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:
     path: /health
-    port: 8081
+    port: http
   initialDelaySeconds: 30
   periodSeconds: 30
 
 readinessProbe:
   httpGet:
     path: /health
-    port: 8081
+    port: http
   initialDelaySeconds: 5
   periodSeconds: 30
+  
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
@@ -122,8 +135,6 @@ autoscaling:
 
 # Additional volumes on the output Deployment definition.
 volumes:
-  - name: data
-    emptyDir: {}
   - name: yugabyte-certs
     secret:
       secretName: yugabyte-tls-client-cert
@@ -134,17 +145,22 @@ volumes:
       secretName: kafka-tls
       optional: false
       defaultMode: 0600
-  
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
-  - name: data
-    mountPath: /app/data
   - name: yugabyte-certs
     mountPath: /etc/yugabyte/certs
     readOnly: true
   - name: kafka-tls
     mountPath: /etc/kafka/certs
     readOnly: true
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
 
 nodeSelector: {}
 
