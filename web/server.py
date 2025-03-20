@@ -52,13 +52,10 @@ try:
         bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
         value_serializer=lambda v: json.dumps(v).encode('utf-8'),
         client_id=client_id,
-        #security_protocol='SSL',
-        #ssl_check_hostname=False,
-        #ssl_certfile='certs/tls.crt',
-        #ssl_keyfile='certs/tls.key',
-        #ssl_cafile='certs/ca.crt',
-        #ssl_password='kafka123',
         max_in_flight_requests_per_connection=1,  # Ensure ordering
+        #security_protocol='SSL',
+        #ssl_check_hostname=True,
+        #ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
     )
     logger.info(f"Successfully connected to Kafka at {os.getenv('KAFKA_BOOTSTRAP_SERVERS')}")
 except Exception as e:

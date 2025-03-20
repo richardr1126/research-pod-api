@@ -40,12 +40,6 @@ COPY . .
 # Create volume mount point for Milvus Lite .db in the root directory
 RUN mkdir -p /app/data
 
-# Create non-root user
-RUN adduser --disabled-password --gecos "" appuser && \
-    chown -R appuser:appuser /app
-
-USER appuser
-
 # Expose health check port
 EXPOSE 8081
 
