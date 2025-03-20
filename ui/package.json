@@ -1,7 +1,7 @@
 {
   "name": "research-pod-ui",
   "version": "0.1.0",
-  "homepage": "https://github.com/EvanMcCormick37/research-pod-ui",
+  "homepage": "https://richardr1126.github.io/research-pod-api",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
