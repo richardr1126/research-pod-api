@@ -1,11 +1,9 @@
 const apiConfig = {
     development: {
-      apiBaseUrl: 'http://localhost:8888',
-      eventsBaseUrl: 'http://localhost:8081',
+      apiBaseUrl: 'http://localhost:8888'
     },
     production: {
-      apiBaseUrl: 'https://api.richardr.dev',
-      eventsBaseUrl: 'https://research-consumer-0.richardr.dev',
+      apiBaseUrl: 'https://api.richardr.dev'
     }
   };
   
