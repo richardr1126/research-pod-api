@@ -23,27 +23,40 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 
 ```mermaid
 graph TD
-    Client[Client] --> |1 - HTTP Requests| WebAPI[Web API]
-    Client --> |4 - SSE Connection| Consumer1[Consumer 1]
-    Client --> |4 - SSE Connection| Consumer2[Consumer 2]
+    Client{{React Client}}
+
+    WebAPI[Web API]
+
+    Kafka{Kafka}
     
-    WebAPI --> |2 - Store/Query Jobs| Redis[(Redis)]
-    WebAPI --> |2 - Store Research Data| YugabyteDB[(YugabyteDB)]
-    WebAPI --> |2 - Publish Jobs| Kafka{Kafka}
-    
-    Kafka --> |3 - Consume Jobs| Consumer1
-    Kafka --> |3 - Consume Jobs| Consumer2
-    
-    Consumer1 --> |Update Status| Redis
-    Consumer2 --> |Update Status| Redis
-    
-    Consumer1 --> |Store Results| YugabyteDB
-    Consumer2 --> |Store Results| YugabyteDB
-    
-    subgraph Consumers
-        Consumer1
-        Consumer2
+    subgraph Storage
+        Redis[(Redis)]
+        YugabyteDB[(YugabyteDB)]
     end
+
+    subgraph Consumers
+        Consumer1([Research 1])
+        Consumer2([Research 2])
+        Consumer3([Research 3])
+    end
+
+    %% Client flow
+    Client -->|Submit Research| WebAPI
+    
+    %% API operations
+    WebAPI -->|Cache/Get Worker URL| Redis
+    WebAPI -->|Store/Get Data| YugabyteDB
+    WebAPI -->|Queue Job| Kafka
+    
+    %% Worker processing
+    Kafka -->|Assign Task| Consumer2
+    
+    %% Data operations
+    Consumer2 -->|Update assigned URL| Redis
+    Consumer2 -->|Store Data| YugabyteDB
+    
+    %% Live updates
+    Client -.->|Stream Updates| Consumer2
 ```
 
 ## Flow with Single Consumer
@@ -81,48 +94,6 @@ sequenceDiagram
     Consumer-->>Client: {status: "COMPLETED", progress: 100}
     Consumer->>Redis: HSET pod:{podId} status "COMPLETED" progress 100
     Consumer->>YugabyteDB: Update pod with results
-```
-
-## Flow with Multiple Consumers
-```mermaid
-sequenceDiagram
-   participant Client
-   participant WebAPI
-   participant Redis
-   participant YugabyteDB
-   participant Kafka
-   participant Consumer1
-   participant Consumer2
-   
-   Note over Client: User initiates research request
-   Client->>WebAPI: POST /v1/api/pod/create {query: "ML paper"}
-   WebAPI->>YugabyteDB: Create research pod record
-   WebAPI->>Redis: HSET pod:{podId} status "QUEUED"
-   WebAPI->>Kafka: Produce job {podId, query}
-   WebAPI->>Client: Return {podId}
-   
-   Note over Kafka,Consumer2: Job assigned to Consumer2
-   Kafka->>Consumer2: Consume job
-   Consumer2->>Redis: HSET pod:{podId} status "ASSIGNED" consumer "consumer2"
-   
-   Client->>WebAPI: GET /v1/api/pod/status/{podId}
-   WebAPI->>Redis: HGETALL pod:{podId}
-   Redis->>WebAPI: Return {consumer: "consumer2", events_url}
-   WebAPI->>Client: Return consumer connection details
-   
-   Client->>Consumer2: GET /events/{podId} (SSE)
-   Note over Consumer2: Start processing
-   Consumer2-->>Client: {status: "PROCESSING", progress: 0}
-   Note over Consumer2: Scraping papers
-   Consumer2-->>Client: {status: "IN_PROGRESS", progress: 33}
-   Consumer2->>Redis: HSET pod:{podId} progress 33
-   Note over Consumer2: Adding to vector store
-   Consumer2-->>Client: {status: "IN_PROGRESS", progress: 66}
-   Consumer2->>Redis: HSET pod:{podId} progress 66
-   Note over Consumer2: Generating summary
-   Consumer2-->>Client: {status: "COMPLETED", progress: 100}
-   Consumer2->>Redis: HSET pod:{podId} status "COMPLETED" progress 100
-   Consumer2->>YugabyteDB: Store final results
 ```
 
 ### Main Parts
