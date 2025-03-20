@@ -1,4 +1,5 @@
 from graph import graph
+import sys
 
 
 def websearch(query):
@@ -14,3 +15,26 @@ def websearch(query):
         print(f"Error during web search: {e}")
         return None
         
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python test_search.py 'your search query'")
+        return
+    
+    query = sys.argv[1]
+    print(f"Searching for: {query}")
+    
+    results = websearch(query)
+    
+    if results:
+        print("\nSearch Results:")
+        for i, result in enumerate(results['results'], 1):
+            print(f"\n--- Result {i} ---")
+            print(f"Title: {result.get('title', 'N/A')}")
+            print(f"URL: {result.get('url', 'N/A')}")
+            print(f"Content snippet: {result.get('content', 'N/A')[:150]}...")
+    else:
+        print("No results found or an error occurred.")
+
+if __name__ == "__main__":
+    main()
