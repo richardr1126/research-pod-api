@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import apiService from '../services/apiService';
 function Browse() {
   const [podcasts, setPodcasts] = useState([]);
   const [filteredPodcasts, setFilteredPodcasts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   
@@ -46,7 +48,7 @@ function Browse() {
   // Handle search
   const handleSearch = (e) => {
     const term = e.target.value;
-    setSearchTerm(term);
+    setQuery(term);
     
     if (!term.trim()) {
       setFilteredPodcasts(podcasts);
@@ -70,21 +72,61 @@ function Browse() {
   const handleDownload = (podcastId) => {
     alert(`Download functionality would be implemented here for podcast ID: ${podcastId}`);
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    
+    try {
+      setIsGenerating(true);
+      setError('');
+      
+      // Call the backend API to generate a podcast
+      const result = await apiService.createPodcast(query);
+      
+      if (result.status === 'success') {
+        // Store the job details locally
+        localStorage.setItem('currentPodcastJob', JSON.stringify({
+          jobId: result.job_id,
+          query: query,
+          timestamp: new Date().toISOString()
+        }));
+        
+        // Navigate to the generating status page
+        navigate(`/generating/${result.job_id}`);
+      } else {
+        setError('Failed to start podcast generation. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error generating podcast:', err);
+      setError('An error occurred while connecting to the server. Please try again later.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   
   return (
     <div className="browse-container">
       <h2>Browse Podcasts</h2>
       <div className="search-container">
-        <input 
-          type="text" 
+        <form className="search-container-form" onSubmit={handleSubmit}>
+        <textarea 
           placeholder="Search podcasts..." 
           className="search-input"
-          value={searchTerm}
+          value={query}
           onChange={handleSearch}
+          rows="1"
         />
-        <button className="search-button">Search</button>
+        <button 
+          type="submit" 
+          className="generate-button"
+          disabled={isGenerating || !query.trim()}
+        >
+          {isGenerating ? 'Generating...' : 'Generate New Podcast'}
+        </button>
+        </form>
       </div>
-      
+      {error && <div className="error-message">{error}</div>}
       {isLoading ? (
         <div className="loading">Loading podcasts...</div>
       ) : filteredPodcasts.length > 0 ? (
@@ -115,7 +157,7 @@ function Browse() {
         </div>
       ) : (
         <div className="no-podcasts">
-          {searchTerm ? 'No podcasts match your search.' : 'No podcasts available. Generate your first podcast!'}
+          {query ? 'No podcasts match your search.' : 'No podcasts available. Generate your first podcast!'}
         </div>
       )}
     </div>

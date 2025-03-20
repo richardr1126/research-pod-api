@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import '../App.css';
 
 const NavigationSidebar = () => {
@@ -23,7 +23,7 @@ const NavigationSidebar = () => {
           <a href="/browse" className={`nav-button ${activePage === 'browse' ? 'active' : ''}`}>
             Browse Podcasts
           </a>
-          <a href="/" className={`nav-button ${activePage === 'generate' ? 'active' : ''}`}>
+          <a href="/create" className={`nav-button ${activePage === 'create' ? 'active' : ''}`}>
             Generate New Podcast
           </a>
         </div>

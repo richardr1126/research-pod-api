@@ -3,33 +3,34 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'r
 import './App.css';
 import NavigationSidebar from './components/NavigationSidebar';
 import RecommenderSidebar from './components/RecommenderSidebar';
-import Home from './pages/Home';
+import Create from './pages/Create';
 import Browse from './pages/Browse';
 import Play from './pages/Play';
 import GeneratingPodcast from './pages/GeneratingPodcast';
 
-
-function App() {
-  const location = useLocation();
-  const path = location.pathname;
-
-  const showRecommenderSidebar = path === '/' || path.includes('/Play') || path.includes('/generating');
-  
+// Separate AppContent component to handle layout logic within the <Router>
+function AppContent() { 
   return (
-    <Router>
       <div className="app">
         <NavigationSidebar />
         <main className="content">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/create" element={<Create />} />
             <Route path="/browse" element={<Browse />} />
             <Route path="/Play/:jobId" element={<Play />} />
             <Route path="/generating/:jobId" element={<GeneratingPodcast />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/browse" replace />} />
           </Routes>
         </main>
-        {showRecommenderSidebar && < RecommenderSidebar />}
+       < RecommenderSidebar />
       </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
