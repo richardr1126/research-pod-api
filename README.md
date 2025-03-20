@@ -7,12 +7,14 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 - **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat and vector search
 - **Message Queue**: Uses Kafka to handle multiple papers at once without overloading
 - **Vector Search**: Uses Milvus Lite to store and find similar content
+- **Database**: YugabyteDB for distributed SQL storage with high availability
 - **Deployment Options**: Can run locally or on our Kubernetes cluster
 
 ### Technical Stack
 - **AI Models**: DeepSeek Chat for generating text, OpenAI for creating embeddings
 - **Architecture**: Event-driven with Kafka for reliability
 - **PDF Handling**: Uses pymupdf4llm for converting PDFs to clean text
+- **Database**: YugabyteDB (Postgres-compatible distributed SQL)
 - **Infrastructure**: Kubernetes configs for our development and future production setup
 
 ## How It Works
@@ -26,6 +28,7 @@ graph TD
     Client --> |4 - SSE Connection| Consumer2[Consumer 2]
     
     WebAPI --> |2 - Store/Query Jobs| Redis[(Redis)]
+    WebAPI --> |2 - Store Research Data| YugabyteDB[(YugabyteDB)]
     WebAPI --> |2 - Publish Jobs| Kafka{Kafka}
     
     Kafka --> |3 - Consume Jobs| Consumer1
@@ -33,6 +36,9 @@ graph TD
     
     Consumer1 --> |Update Status| Redis
     Consumer2 --> |Update Status| Redis
+    
+    Consumer1 --> |Store Results| YugabyteDB
+    Consumer2 --> |Store Results| YugabyteDB
     
     subgraph Consumers
         Consumer1
@@ -47,31 +53,34 @@ sequenceDiagram
     participant Client
     participant WebAPI
     participant Redis
+    participant YugabyteDB
     participant Kafka
     participant Consumer
     
     Note over Client: User initiates research request
     Client->>WebAPI: POST /v1/api/pod/create {query: "ML paper"}
-    WebAPI->>Redis: HSET job:{jobId} status "QUEUED"
-    WebAPI->>Kafka: Produce job {jobId, query}
-    WebAPI->>Client: Return {jobId}
+    WebAPI->>YugabyteDB: Create research pod record
+    WebAPI->>Redis: HSET pod:{podId} status "QUEUED"
+    WebAPI->>Kafka: Produce job {podId, query}
+    WebAPI->>Client: Return {podId}
     
     Note over Kafka,Consumer: Job assigned to Consumer
     Kafka->>Consumer: Consume job
-    Consumer->>Redis: HSET job:{jobId} status "ASSIGNED" consumer "consumer1"
+    Consumer->>Redis: HSET pod:{podId} status "ASSIGNED" consumer "consumer1"
     
-    Client->>WebAPI: GET /v1/api/jobs/{jobId}
-    WebAPI->>Redis: HGETALL job:{jobId}
+    Client->>WebAPI: GET /v1/api/pod/status/{podId}
+    WebAPI->>Redis: HGETALL pod:{podId}
     Redis->>WebAPI: Return {consumer: "consumer1", events_url}
     WebAPI->>Client: Return consumer connection details
     
-    Client->>Consumer: GET /events/{jobId} (SSE)
+    Client->>Consumer: GET /events/{podId} (SSE)
     Note over Consumer: Processing Pipeline
     Consumer-->>Client: {status: "PROCESSING", progress: 0}
     Consumer-->>Client: {status: "IN_PROGRESS", progress: 50}
-    Consumer->>Redis: HSET job:{jobId} progress 50
+    Consumer->>Redis: HSET pod:{podId} progress 50
     Consumer-->>Client: {status: "COMPLETED", progress: 100}
-    Consumer->>Redis: HSET job:{jobId} status "COMPLETED" progress 100
+    Consumer->>Redis: HSET pod:{podId} status "COMPLETED" progress 100
+    Consumer->>YugabyteDB: Update pod with results
 ```
 
 ## Flow with Multiple Consumers
@@ -80,37 +89,40 @@ sequenceDiagram
    participant Client
    participant WebAPI
    participant Redis
+   participant YugabyteDB
    participant Kafka
    participant Consumer1
    participant Consumer2
    
    Note over Client: User initiates research request
    Client->>WebAPI: POST /v1/api/pod/create {query: "ML paper"}
-   WebAPI->>Redis: HSET job:{jobId} status "QUEUED"
-   WebAPI->>Kafka: Produce job {jobId, query}
-   WebAPI->>Client: Return {jobId}
+   WebAPI->>YugabyteDB: Create research pod record
+   WebAPI->>Redis: HSET pod:{podId} status "QUEUED"
+   WebAPI->>Kafka: Produce job {podId, query}
+   WebAPI->>Client: Return {podId}
    
    Note over Kafka,Consumer2: Job assigned to Consumer2
    Kafka->>Consumer2: Consume job
-   Consumer2->>Redis: HSET job:{jobId} status "ASSIGNED" consumer "consumer2"
+   Consumer2->>Redis: HSET pod:{podId} status "ASSIGNED" consumer "consumer2"
    
-   Client->>WebAPI: GET /v1/api/jobs/{jobId}
-   WebAPI->>Redis: HGETALL job:{jobId}
+   Client->>WebAPI: GET /v1/api/pod/status/{podId}
+   WebAPI->>Redis: HGETALL pod:{podId}
    Redis->>WebAPI: Return {consumer: "consumer2", events_url}
    WebAPI->>Client: Return consumer connection details
    
-   Client->>Consumer2: GET /events/{jobId} (SSE)
+   Client->>Consumer2: GET /events/{podId} (SSE)
    Note over Consumer2: Start processing
    Consumer2-->>Client: {status: "PROCESSING", progress: 0}
    Note over Consumer2: Scraping papers
    Consumer2-->>Client: {status: "IN_PROGRESS", progress: 33}
-   Consumer2->>Redis: HSET job:{jobId} progress 33
+   Consumer2->>Redis: HSET pod:{podId} progress 33
    Note over Consumer2: Adding to vector store
    Consumer2-->>Client: {status: "IN_PROGRESS", progress: 66}
-   Consumer2->>Redis: HSET job:{jobId} progress 66
+   Consumer2->>Redis: HSET pod:{podId} progress 66
    Note over Consumer2: Generating summary
    Consumer2-->>Client: {status: "COMPLETED", progress: 100}
-   Consumer2->>Redis: HSET job:{jobId} status "COMPLETED" progress 100
+   Consumer2->>Redis: HSET pod:{podId} status "COMPLETED" progress 100
+   Consumer2->>YugabyteDB: Store final results
 ```
 
 ### Main Parts
@@ -118,25 +130,34 @@ sequenceDiagram
    - Takes requests from our frontend
    - Manages async jobs (since paper processing takes time)
    - Validates input to prevent garbage requests
+   - Stores research data in YugabyteDB
 
 2. **Research Consumer**
    - Does the heavy lifting of paper processing
    - Runs our RAG pipeline
    - Manages the vector database
+   - Stores results in YugabyteDB
 
 3. **Message System**
    - Uses Kafka to handle multiple requests
    - Keeps track of which papers are being processed
    - Has error handling for when things go wrong
 
+4. **Database**
+   - Uses YugabyteDB for distributed SQL storage
+   - Stores research pod data, results, and metadata
+   - Highly available with automatic failover
+   - PostgreSQL-compatible for easy integration
+
 ## Getting Started
 
 Endpoints are currently deployed to:
 - Web API:
   - `https://api.richardr.dev/v1/api/pod/create`
-  - `https://api.richardr.dev/v1/api/pod/status/<job_id>`
+  - `https://api.richardr.dev/v1/api/pod/status/{pod_id}`
+  - `https://api.richardr.dev/v1/api/pod/get/{pod_id}` (for full details, dont poll)
 - Kafka monitoring: `https://kafkaui.richardr.dev`
-- Event stream: `https://research-consumer-{0|1|2}.richardr.dev/v1/events/{job_id}`
+- Event stream: `https://research-consumer-{0|1|2}.richardr.dev/v1/events/{pod_id}`
 
 > **Note**: The deployed version is set up on my domain for now. There are 3 consumers running to handle requests.
 
@@ -173,7 +194,7 @@ curl -X POST http://localhost:8888/v1/api/pod/create \
 
 6. Connect to stream:
 ```bash
-curl -N -H "Accept: text/event-stream" http://localhost:8081/v1/events/{job_id}
+curl -N http://localhost:8081/v1/events/{job_id}
 ```   
 
 **Important**: See [k8s/README.md](k8s/README.md) for:
@@ -225,12 +246,14 @@ The scripts will:
 curl -X POST http://localhost:8888/v1/api/pod/create \
   -H "Content-Type: application/json" \
   -d '{"query": "quantum computing advances 2024"}'
+```
 
+```json
 # Response:
 {
   "status": "success",
   "message": "Scrape request queued",
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "pod_id": "550e8400-e29b-41d4-a716-446655440000",
   "events_url": "http://localhost:8081/v1/events/550e8400-e29b-41d4-a716-446655440000"
 }
 ```
@@ -238,10 +261,12 @@ curl -X POST http://localhost:8888/v1/api/pod/create \
 2. Check job status:
 ```bash
 curl http://localhost:8888/v1/api/pod/status/550e8400-e29b-41d4-a716-446655440000
+```
 
+```json
 # Response:
 {
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "pod_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "PROCESSING",
   "progress": 33,
   "query": "quantum computing advances 2024",
@@ -252,7 +277,9 @@ curl http://localhost:8888/v1/api/pod/status/550e8400-e29b-41d4-a716-44665544000
 3. Connect to event stream to receive real-time updates:
 ```bash
 curl -N http://localhost:8081/v1/events/550e8400-e29b-41d4-a716-446655440000
+```
 
+```json
 # You'll receive SSE events like:
 event: status
 data: {"status": "PROCESSING", "progress": 0, "message": "Starting paper collection"}
@@ -273,6 +300,10 @@ event: status
 data: {"status": "COMPLETED", "progress": 100, "message": "Analysis complete"}
 ```
 
+## Endpoints
+### (research-consumer) GET /v1/events/{pod_id}
+Connect to the event stream for a specific job.
+
 ### POST /v1/api/pod/create
 This is how you request a paper analysis.
 
@@ -288,62 +319,36 @@ You'll get back:
 {
   "status": "success",
   "message": "Scrape request queued",
-  "job_id": "uuid-string"  // Save this to check status later
+  "pod_id": "uuid-string",   // ID for database record and tracking
+  "events_url": "http://localhost:8081/v1/events/uuid-string"
 }
 ```
 
-### GET /v1/api/pod/status/{job_id}
-Get job status:
+### GET /v1/api/pod/status/{pod_id}
+Get pod status:
 ```json
 {
-  "job_id": "uuid-string",
+  "pod_id": "uuid-string",
   "status": "QUEUED|ASSIGNED|PROCESSING|IN_PROGRESS|COMPLETED|ERROR",
   "progress": 0-100,
   "query": "original query",
-  "events_url": "https://research-consumer-{id}.richardr.dev/v1/events/{job_id}"
+  "events_url": "https://research-consumer-{id}.richardr.dev/v1/events/{pod_id}"
 }
 ```
-> **Note**: Poll this endpoint until `events_url` is available (it might not be at first). You should not poll this endpoint after the `events_url` is provided. Connect to directly to the `events_url` for real-time updates.
 
-### GET /v1/events/{job_id}
-Server-Sent Events (SSE) endpoint for real-time updates without polling the main API.
-
-Events:
-- `status`: Job status updates
-- `papers`: List of papers being analyzed
-- `analysis`: Intermediate analysis results
-- `error`: Any errors that occur
-
-Example event types:
+### GET /v1/api/pod/get/{pod_id}
+Get full research pod details from database:
 ```json
-// Status event
 {
-  "status": "IN_PROGRESS",
-  "progress": 50,
-  "message": "Processing papers"
-}
-
-// Papers event
-{
-  "papers": [
-    {
-      "title": "Recent Advances in Quantum Computing",
-      "url": "https://arxiv.org/abs/...",
-      "summary": "Brief overview..."
-    }
-  ]
-}
-
-// Analysis event
-{
-  "key_findings": "Text summarizing findings...",
-  "related_topics": ["Topic 1", "Topic 2"]
-}
-
-// Error event
-{
-  "error": "Error message",
-  "code": "ERROR_CODE"
+  "id": "uuid-string",
+  "query": "original query",
+  "summary": "Generated summary text",
+  "status": "QUEUED|PROCESSING|COMPLETED|ERROR",
+  "error_message": "Any error details",
+  "progress": 0-100,
+  "consumer_id": "consumer identifier",
+  "created_at": "ISO timestamp",
+  "updated_at": "ISO timestamp"
 }
 ```
 
@@ -355,7 +360,9 @@ Returns:
 {
   "status": "healthy",
   "redis": "healthy|unhealthy",
-  "kafka_producer": "healthy|unhealthy"
+  "kafka_producer": "healthy|unhealthy",
+  "database": "healthy|unhealthy",
+  "timestamp": "ISO timestamp"
 }
 ```
 

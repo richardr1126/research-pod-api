@@ -3,12 +3,15 @@ from flask_cors import CORS
 import os
 import multiprocessing
 import json
-import uuid
+from uuid_v7.base import uuid7
 import logging
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
 from dotenv import load_dotenv
 import redis
+import psycopg2
+from db import db, ResearchPods
+from datetime import datetime, timezone
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +23,19 @@ load_dotenv()
 # Initialize Flask app
 server = Flask(__name__)
 CORS(server)
+
+# Database Configuration
+server.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', '')
+server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize SQLAlchemy
+db.init_app(server)
+
+def init_db():
+    with server.app_context():
+        db.create_all()
+
+init_db()
 
 # Initialize Redis
 redis_client = redis.Redis.from_url(
@@ -49,18 +65,18 @@ except Exception as e:
     logger.error(f"Failed to connect to Kafka: {str(e)}")
     producer = None
 
-def get_events_url(job_id):
-    """Get the events URL for a job."""
+def get_events_url(pod_id):
+    """Get the events URL for a pod."""
     # Check if we're running in Kubernetes
     if os.getenv('KUBERNETES_SERVICE_HOST'):
         # Get assigned consumer from Redis
-        consumer_id = redis_client.hget(f"job:{job_id}", "consumer")
-        if consumer_id:
-            return f"https://research-consumer-{consumer_id}.richardr.dev/v1/events/{job_id}"
+        consumer_id = redis_client.hget(f"pod:{pod_id}", "consumer")
+        if (consumer_id):
+            return f"https://research-consumer-{consumer_id}.richardr.dev/v1/events/{pod_id}"
         else:
             return None
     # Default to localhost for local development
-    return f"http://localhost:8888/v1/events/{job_id}"
+    return f"http://localhost:8888/v1/events/{pod_id}"
 
 @server.route('/v1/api/pod/create', methods=['POST'])
 def scrape():
@@ -72,10 +88,15 @@ def scrape():
         if not body or 'query' not in body:
             return jsonify({"error": "Missing query in request body"}), 400
             
-        job_id = str(uuid.uuid4())
+        # Create ResearchPod entry
+        research_pod = ResearchPods.create_from_request(
+            query=body['query']
+        )
+        db.session.add(research_pod)
+        db.session.commit()
         
-        # Initialize job in Redis
-        redis_client.hset(f"job:{job_id}",
+        # Initialize pod in Redis
+        redis_client.hset(f"pod:{research_pod.id}",
             mapping={
                 "status": "QUEUED",
                 "progress": 0,
@@ -84,15 +105,15 @@ def scrape():
         )
         
         message = {
-            "job_id": job_id,
+            "pod_id": research_pod.id,
             "query": body['query']
         }
         
-        logger.info(f"Attempting to send message with job_id: {job_id}")
+        logger.info(f"Attempting to send message with pod_id: {research_pod.id}")
         
         # Send to Kafka...
         future = producer.send('scrape-requests', 
-            key=job_id.encode('utf-8'), 
+            key=str(research_pod.id).encode('utf-8'), 
             value=message
         )
         
@@ -103,58 +124,81 @@ def scrape():
                        f"offset: {record_metadata.offset}")
         except KafkaError as e:
             logger.error(f"Failed to send message: {str(e)}")
+            db.session.delete(research_pod)
+            db.session.commit()
             return jsonify({"error": f"Failed to send message: {str(e)}"}), 500
         
         return jsonify({
+            "pod_id": research_pod.id,
             "status": "success", 
             "message": "Scrape request queued",
-            "job_id": job_id
+            "events_url": get_events_url(research_pod.id)
         }), 202
 
     except Exception as e:
         logger.error(f"Error in scrape endpoint: {str(e)}")
+        # Rollback any database changes if there was an error
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@server.route('/v1/api/pod/status/<job_id>', methods=['GET'])
-def get_job(job_id):
-    """Get job status and details."""
+@server.route('/v1/api/pod/status/<pod_id>', methods=['GET'])
+def get_status(pod_id):
+    """Get pod status and details."""
     try:
-        job_data = redis_client.hgetall(f"job:{job_id}")
-        if not job_data:
-            return jsonify({"error": "Job not found"}), 404
+        pod_data = redis_client.hgetall(f"pod:{pod_id}")
+        if not pod_data:
+            return jsonify({"error": "Pod not found"}), 404
         
         response = {
-            "job_id": job_id,
-            "status": job_data.get("status"),
-            "progress": int(job_data.get("progress", 0)),
-            "query": job_data.get("query")
+            "pod_id": pod_id,
+            "status": pod_data.get("status"),
+            "progress": int(pod_data.get("progress", 0)),
+            "query": pod_data.get("query")
         }
         
         # Get consumer URL
-        events_url = get_events_url(job_id)
+        events_url = get_events_url(pod_id)
         if events_url:
             response["events_url"] = events_url
             
         return jsonify(response), 200
         
     except Exception as e:
-        logger.error(f"Error getting job status: {str(e)}")
+        logger.error(f"Error getting pod status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+@server.route('/v1/api/pod/get/<pod_id>', methods=['GET'])
+def get_pod(pod_id):
+    """Get research pod details from database."""
+    try:
+        research_pod = db.get_or_404(ResearchPods, pod_id)
+        
+        # Convert the ResearchPod to dictionary format
+        response = research_pod.to_dict()
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting research pod: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 # Health check endpoint
 @server.route('/health')
 def health():
-    """Simple health check endpoint."""
+    """Health check endpoint with Redis, Kafka, and Database status."""
     status = {
         "status": "healthy",
         "redis": "healthy",
-        "kafka_producer": "healthy"
+        "kafka_producer": "healthy",
+        "database": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
     # Check Redis connection
     try:
         redis_client.ping()
     except Exception as e:
+        logger.error(f"Redis health check failed: {str(e)}")
         status["redis"] = "unhealthy"
         status["status"] = "degraded"
     
@@ -163,6 +207,14 @@ def health():
         status["kafka_producer"] = "unhealthy"
         status["status"] = "degraded"
     
+    # Check database connection
+    try:
+        db.session.execute(db.select(1))
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        status["database"] = "unhealthy"
+        status["status"] = "degraded"
+    
     http_status = 200 if status["status"] == "healthy" else 503
     return jsonify(status), http_status
-    

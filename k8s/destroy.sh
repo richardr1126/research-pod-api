@@ -14,9 +14,13 @@ usage() {
 
 destroy_kubectl() {
     echo "Destroying kubectl resources..."
-    helm uninstall -n cert-manager cert-manager external-dns --wait
-    helm uninstall kafka kafka-ui research-consumer web-api ingress-nginx redis --wait --ignore-not-found
+    helm uninstall -n cert-manager cert-manager external-dns
+    helm uninstall kafka kafka-ui research-consumer web-api ingress-nginx redis --ignore-not-found
+    helm delete yugabyte -n yugabyte
+    kubectl delete pvc --namespace yugabyte -l app=yb-master --force
+    kubectl delete pvc --namespace yugabyte -l app=yb-tserver --force
     kubectl delete pvc --all --force
+    kubectl delete namespaces yugabyte cert-manager
 
     echo "Kubectl resources destruction completed!"
 }
@@ -24,7 +28,7 @@ destroy_kubectl() {
 # Function to destroy Azure resources
 destroy_azure() {
     echo "Destroying Azure resources..."
-    #destroy_kubectl # Destroy kubectl resources first
+    destroy_kubectl # Destroy kubectl resources first
     
     # Delete the AKS cluster
     echo "Deleting AKS cluster..."
@@ -52,7 +56,7 @@ destroy_azure() {
 # Function to destroy Digital Ocean resources
 destroy_docean() {
     echo "Destroying Digital Ocean resources..."
-    #destroy_kubectl # Destroy kubectl resources first
+    destroy_kubectl # Destroy kubectl resources first
 
     # Delete the Kubernetes cluster
     echo "Deleting Kubernetes cluster..."

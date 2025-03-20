@@ -30,15 +30,15 @@ gcloud services enable container.googleapis.com \
 echo "Creating GKE cluster..."
 gcloud container clusters create $CLUSTER_NAME-gcp \
     --project $GCP_PROJECT_ID \
-    --region $GCP_REGION \
+    --zone $GCP_ZONE \
     --machine-type $GCP_MACHINE_TYPE \
     --num-nodes $MIN_NODES \
+    --enable-autorepair \
+    --enable-autoupgrade \
+    --enable-ip-alias \
     --enable-autoscaling \
     --min-nodes $MIN_NODES \
     --max-nodes $MAX_NODES \
-    --enable-autorepair \
-    --enable-autoupgrade \
-    --enable-ip-alias
 
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
@@ -56,6 +56,15 @@ gcloud artifacts repositories create $REGISTRY_NAME \
 # Configure Docker to use GCP Artifact Registry
 echo "Configuring Docker authentication..."
 gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev
+
+# Create GCP registry pull secret
+echo "Creating GCP registry pull secret..."
+kubectl create secret docker-registry $REGISTRY_NAME \
+    --docker-server=${GCP_REGION}-docker.pkg.dev \
+    --docker-username=_json_key \
+    --docker-email=not@used.com \
+    --docker-password="$(gcloud auth print-access-token)" \
+    --dry-run=client -o yaml | kubectl apply -f -
 
 # Build and push multi-architecture images
 REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"

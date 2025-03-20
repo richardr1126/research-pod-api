@@ -46,6 +46,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+  
+  postgres:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_USER=researchpod
+      - POSTGRES_PASSWORD=research-pod-password
+      - POSTGRES_DB=researchpod
+    volumes:
+      - db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "researchpod"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   research-consumer:
     build: 
@@ -65,16 +82,19 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   web-api:
     build: 
       context: ./web/
       dockerfile: Dockerfile
     ports:
-      - "8888:8080"
+      - "8888:8888"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - REDIS_URL=redis://redis:6379
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://researchpod:research-pod-password@postgres:5432/researchpod
       - FLASK_APP=server:server
       - FLASK_ENV=development
       - FLASK_DEBUG=1
@@ -83,3 +103,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  db:
