@@ -75,6 +75,3 @@ htmlcov/
 .coverage.*
 coverage.xml
 *.cover
-
-# UI
-ui/public
