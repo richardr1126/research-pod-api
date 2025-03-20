@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/research-pod-api/static/css/main.855a0bee.css",
+    "main.js": "/research-pod-api/static/js/main.78580883.js",
+    "static/js/453.d416804d.chunk.js": "/research-pod-api/static/js/453.d416804d.chunk.js",
+    "index.html": "/research-pod-api/index.html",
+    "main.855a0bee.css.map": "/research-pod-api/static/css/main.855a0bee.css.map",
+    "main.78580883.js.map": "/research-pod-api/static/js/main.78580883.js.map",
+    "453.d416804d.chunk.js.map": "/research-pod-api/static/js/453.d416804d.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.855a0bee.css",
+    "static/js/main.78580883.js"
+  ]
+}
