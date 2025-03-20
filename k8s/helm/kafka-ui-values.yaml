@@ -5,7 +5,6 @@ resources:
   requests:
     cpu: 100m
     memory: 256Mi
-  
 
 service:
   type: LoadBalancer
@@ -13,14 +12,29 @@ service:
   annotations:
     external-dns.alpha.kubernetes.io/hostname: "kafkaui.richardr.dev"
 
+volumes:
+  - name: kafka-tls
+    secret:
+      secretName: kafka-tls
+
+volumeMounts:
+  - name: kafka-tls
+    mountPath: /etc/kafka/certs
+    readOnly: true
+
 yamlApplicationConfig:
   kafka:
     clusters:
-      - name: yaml
+      - name: kafka
+        readOnly: true
         bootstrapServers: kafka.default.svc.cluster.local:9092
+        ssl:
+          enabled: true
+          trustStoreLocation: /etc/kafka/certs/kafka-ca.crt
+          trustStoreType: PEM
+        properties:
+          security.protocol: SSL
+          ssl.truststore.type: PEM
+          ssl.truststore.location: /etc/kafka/certs/kafka-ca.crt
   auth:
     type: disabled
-  # management:
-  #   health:
-  #     ldap:
-  #       enabled: false
