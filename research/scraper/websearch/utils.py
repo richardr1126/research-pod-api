@@ -5,12 +5,13 @@ from langsmith import traceable
 # from tavily import TavilyClient
 from duckduckgo_search import DDGS
 from langchain_core.runnables import RunnableConfig
-
-from configuration import Configuration
 # from langchain_ollama import ChatOllama
 # from langchain_openai import ChatOpenAI
 # from langchain_anthropic import ChatAnthropic
 # from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Custom imports
+from .configuration import Configuration
 
 def deduplicate_and_format_sources(search_response, max_tokens_per_source, include_raw_content=False):
     """
