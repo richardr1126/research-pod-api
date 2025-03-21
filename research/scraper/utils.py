@@ -2,15 +2,15 @@ import os
 import requests
 from typing import Dict, Any, List, Optional
 from langsmith import traceable
-from tavily import TavilyClient
+# from tavily import TavilyClient
 from duckduckgo_search import DDGS
 from langchain_core.runnables import RunnableConfig
 
 from configuration import Configuration
-from langchain_ollama import ChatOllama
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_ollama import ChatOllama
+# from langchain_openai import ChatOpenAI
+# from langchain_anthropic import ChatAnthropic
+# from langchain_google_genai import ChatGoogleGenerativeAI
 
 def deduplicate_and_format_sources(search_response, max_tokens_per_source, include_raw_content=False):
     """
@@ -139,177 +139,177 @@ def duckduckgo_search(query: str, max_results: int = 3, fetch_full_page: bool = 
         print(f"Full error details: {type(e).__name__}")
         return {"results": []}
 
-@traceable
-def tavily_search(query, include_raw_content=True, max_results=3):
-    """ Search the web using the Tavily API.
+# @traceable
+# def tavily_search(query, include_raw_content=True, max_results=3):
+#     """ Search the web using the Tavily API.
     
-    Args:
-        query (str): The search query to execute
-        include_raw_content (bool): Whether to include the raw_content from Tavily in the formatted string
-        max_results (int): Maximum number of results to return
+#     Args:
+#         query (str): The search query to execute
+#         include_raw_content (bool): Whether to include the raw_content from Tavily in the formatted string
+#         max_results (int): Maximum number of results to return
         
-    Returns:
-        dict: Search response containing:
-            - results (list): List of search result dictionaries, each containing:
-                - title (str): Title of the search result
-                - url (str): URL of the search result
-                - content (str): Snippet/summary of the content
-                - raw_content (str): Full content of the page if available"""
+#     Returns:
+#         dict: Search response containing:
+#             - results (list): List of search result dictionaries, each containing:
+#                 - title (str): Title of the search result
+#                 - url (str): URL of the search result
+#                 - content (str): Snippet/summary of the content
+#                 - raw_content (str): Full content of the page if available"""
      
-    api_key = os.getenv("TAVILY_API_KEY")
-    if not api_key:
-        raise ValueError("TAVILY_API_KEY environment variable is not set")
-    tavily_client = TavilyClient(api_key=api_key)
-    return tavily_client.search(query, 
-                         max_results=max_results, 
-                         include_raw_content=include_raw_content)
+#     api_key = os.getenv("TAVILY_API_KEY")
+#     if not api_key:
+#         raise ValueError("TAVILY_API_KEY environment variable is not set")
+#     tavily_client = TavilyClient(api_key=api_key)
+#     return tavily_client.search(query, 
+#                          max_results=max_results, 
+#                          include_raw_content=include_raw_content)
 
-@traceable
-def perplexity_search(query: str, perplexity_search_loop_count: int) -> Dict[str, Any]:
-    """Search the web using the Perplexity API.
+# @traceable
+# def perplexity_search(query: str, perplexity_search_loop_count: int) -> Dict[str, Any]:
+#     """Search the web using the Perplexity API.
     
-    Args:
-        query (str): The search query to execute
-        perplexity_search_loop_count (int): The loop step for perplexity search (starts at 0)
+#     Args:
+#         query (str): The search query to execute
+#         perplexity_search_loop_count (int): The loop step for perplexity search (starts at 0)
   
-    Returns:
-        dict: Search response containing:
-            - results (list): List of search result dictionaries, each containing:
-                - title (str): Title of the search result
-                - url (str): URL of the search result
-                - content (str): Snippet/summary of the content
-                - raw_content (str): Full content of the page if available
-    """
+#     Returns:
+#         dict: Search response containing:
+#             - results (list): List of search result dictionaries, each containing:
+#                 - title (str): Title of the search result
+#                 - url (str): URL of the search result
+#                 - content (str): Snippet/summary of the content
+#                 - raw_content (str): Full content of the page if available
+#     """
 
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"
-    }
+#     headers = {
+#         "accept": "application/json",
+#         "content-type": "application/json",
+#         "Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"
+#     }
     
-    payload = {
-        "model": "sonar-pro",
-        "messages": [
-            {
-                "role": "system",
-                "content": "Search the web and provide factual information with sources."
-            },
-            {
-                "role": "user",
-                "content": query
-            }
-        ]
-    }
+#     payload = {
+#         "model": "sonar-pro",
+#         "messages": [
+#             {
+#                 "role": "system",
+#                 "content": "Search the web and provide factual information with sources."
+#             },
+#             {
+#                 "role": "user",
+#                 "content": query
+#             }
+#         ]
+#     }
     
-    response = requests.post(
-        "https://api.perplexity.ai/chat/completions",
-        headers=headers,
-        json=payload
-    )
-    response.raise_for_status()  # Raise exception for bad status codes
+#     response = requests.post(
+#         "https://api.perplexity.ai/chat/completions",
+#         headers=headers,
+#         json=payload
+#     )
+#     response.raise_for_status()  # Raise exception for bad status codes
     
-    # Parse the response
-    data = response.json()
-    content = data["choices"][0]["message"]["content"]
+#     # Parse the response
+#     data = response.json()
+#     content = data["choices"][0]["message"]["content"]
 
-    # Perplexity returns a list of citations for a single search result
-    citations = data.get("citations", ["https://perplexity.ai"])
+#     # Perplexity returns a list of citations for a single search result
+#     citations = data.get("citations", ["https://perplexity.ai"])
     
-    # Return first citation with full content, others just as references
-    results = [{
-        "title": f"Perplexity Search {perplexity_search_loop_count + 1}, Source 1",
-        "url": citations[0],
-        "content": content,
-        "raw_content": content
-    }]
+#     # Return first citation with full content, others just as references
+#     results = [{
+#         "title": f"Perplexity Search {perplexity_search_loop_count + 1}, Source 1",
+#         "url": citations[0],
+#         "content": content,
+#         "raw_content": content
+#     }]
     
-    # Add additional citations without duplicating content
-    for i, citation in enumerate(citations[1:], start=2):
-        results.append({
-            "title": f"Perplexity Search {perplexity_search_loop_count + 1}, Source {i}",
-            "url": citation,
-            "content": "See above for full content",
-            "raw_content": None
-        })
+#     # Add additional citations without duplicating content
+#     for i, citation in enumerate(citations[1:], start=2):
+#         results.append({
+#             "title": f"Perplexity Search {perplexity_search_loop_count + 1}, Source {i}",
+#             "url": citation,
+#             "content": "See above for full content",
+#             "raw_content": None
+#         })
     
-    return {"results": results}
+#     return {"results": results}
 
-def get_llm(llm_name: str,  **kwargs):
-    """Get a langchain chat model based on the specified name with customizable parameters.
+# def get_llm(llm_name: str,  **kwargs):
+#     """Get a langchain chat model based on the specified name with customizable parameters.
     
-    Args:
-        llm_name (str): Name of the LLM provider, one of: "openai", "ollama", "claude", "gemini"
-        **kwargs: Additional keyword arguments to pass to the model constructor
-            Common parameters:
-            - temperature: Controls randomness (default: 0.7)
-            - model: Model name (defaults vary by provider)
+#     Args:
+#         llm_name (str): Name of the LLM provider, one of: "openai", "ollama", "claude", "gemini"
+#         **kwargs: Additional keyword arguments to pass to the model constructor
+#             Common parameters:
+#             - temperature: Controls randomness (default: 0.7)
+#             - model: Model name (defaults vary by provider)
             
-            Ollama-specific:
-            - base_url: URL for Ollama API (default: http://localhost:11434)
-            - format: Response format (e.g., "json")
+#             Ollama-specific:
+#             - base_url: URL for Ollama API (default: http://localhost:11434)
+#             - format: Response format (e.g., "json")
             
-            Provider-specific parameters will be passed through to the constructor
+#             Provider-specific parameters will be passed through to the constructor
         
-    Returns:
-        A configured Langchain chat model instance
+#     Returns:
+#         A configured Langchain chat model instance
         
-    Raises:
-        ValueError: If an invalid llm_name is provided or if required API keys are missing
-    """
-    llm_name = llm_name.lower()
-    # configurable = Configuration.from_runnable_config(config)
+#     Raises:
+#         ValueError: If an invalid llm_name is provided or if required API keys are missing
+#     """
+#     llm_name = llm_name.lower()
+#     # configurable = Configuration.from_runnable_config(config)
     
-    # Check for required API keys
-    if llm_name == "openai" and not os.getenv("OPENAI_API_KEY"):
-        raise ValueError("OPENAI_API_KEY environment variable is not set")
-    elif llm_name == "claude" and not os.getenv("ANTHROPIC_API_KEY"):
-        raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
-    elif llm_name == "gemini" and not os.getenv("GOOGLE_API_KEY"):
-        raise ValueError("GOOGLE_API_KEY environment variable is not set")
+#     # Check for required API keys
+#     if llm_name == "openai" and not os.getenv("OPENAI_API_KEY"):
+#         raise ValueError("OPENAI_API_KEY environment variable is not set")
+#     elif llm_name == "claude" and not os.getenv("ANTHROPIC_API_KEY"):
+#         raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
+#     elif llm_name == "gemini" and not os.getenv("GOOGLE_API_KEY"):
+#         raise ValueError("GOOGLE_API_KEY environment variable is not set")
     
-    # Default parameters that can be overridden by kwargs
-    if llm_name == "openai":
-        defaults = {
-            "temperature": 0.7,
-            "model": "gpt-3.5-turbo"
-        }
-        # Update defaults with any provided kwargs
-        defaults.update(kwargs)
-        return ChatOpenAI(**defaults)
+#     # Default parameters that can be overridden by kwargs
+#     if llm_name == "openai":
+#         defaults = {
+#             "temperature": 0.7,
+#             "model": "gpt-3.5-turbo"
+#         }
+#         # Update defaults with any provided kwargs
+#         defaults.update(kwargs)
+#         return ChatOpenAI(**defaults)
     
-    elif llm_name == "ollama":
-        defaults = {
-            "model": "llama3.2",
-            "temperature": 0.7,
-            "base_url": "http://localhost:11434"
-        }
-        defaults.update(kwargs)
-        return ChatOllama(**defaults)
+#     elif llm_name == "ollama":
+#         defaults = {
+#             "model": "llama3.2",
+#             "temperature": 0.7,
+#             "base_url": "http://localhost:11434"
+#         }
+#         defaults.update(kwargs)
+#         return ChatOllama(**defaults)
     
-    elif llm_name == "claude":
-        defaults = {
-            "model": "claude-3-sonnet-20240229",
-            "temperature": 0.7
-        }
-        defaults.update(kwargs)
-        return ChatAnthropic(**defaults)
+#     elif llm_name == "claude":
+#         defaults = {
+#             "model": "claude-3-sonnet-20240229",
+#             "temperature": 0.7
+#         }
+#         defaults.update(kwargs)
+#         return ChatAnthropic(**defaults)
     
-    elif llm_name == "gemini":
-        defaults = {
-            "model": "gemini-pro",
-            "temperature": 0.7
-        }
-        defaults.update(kwargs)
-        return ChatGoogleGenerativeAI(**defaults)
+#     elif llm_name == "gemini":
+#         defaults = {
+#             "model": "gemini-pro",
+#             "temperature": 0.7
+#         }
+#         defaults.update(kwargs)
+#         return ChatGoogleGenerativeAI(**defaults)
     
-    elif llm_name == "deepseek":
-        defaults = {
-            "model": "deepseek-chat",
-            "temperature": 0.7
-        }
-        defaults.update(kwargs)
-        return ChatOpenAI(**defaults)
+#     elif llm_name == "deepseek":
+#         defaults = {
+#             "model": "deepseek-chat",
+#             "temperature": 0.7
+#         }
+#         defaults.update(kwargs)
+#         return ChatOpenAI(**defaults)
     
-    else:
-        raise ValueError(f"Invalid LLM name: {llm_name}. Choose from 'openai', 'ollama', 'claude', or 'gemini'.")
+#     else:
+#         raise ValueError(f"Invalid LLM name: {llm_name}. Choose from 'openai', 'ollama', 'claude', or 'gemini'.")
 

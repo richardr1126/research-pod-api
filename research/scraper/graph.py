@@ -7,13 +7,21 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+# from langchain_ollama import ChatOllama
 from langgraph.graph import START, END, StateGraph
 
 from configuration import Configuration, SearchAPI
-from utils import deduplicate_and_format_sources, tavily_search, perplexity_search, duckduckgo_search, get_llm
+# from utils import deduplicate_and_format_sources, tavily_search, perplexity_search, duckduckgo_search, get_llm
+from utils import deduplicate_and_format_sources, duckduckgo_search#, get_llm
 from state import SummaryState, SummaryStateInput, SummaryStateOutput
 from prompts import query_writer_instructions, summarizer_instructions, reflection_instructions, podcast_script_instructions
+
+import os
+deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+# from dotenv import load_dotenv
+# load_dotenv()
+# deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
 
 # Nodes
 def generate_query(state: SummaryState, config: RunnableConfig):
@@ -23,12 +31,13 @@ def generate_query(state: SummaryState, config: RunnableConfig):
     query_writer_instructions_formatted = query_writer_instructions.format(research_topic=state.research_topic)
     
     # Generate a query
-    configurable = Configuration.from_runnable_config(config)
-    llm = get_llm("deepseek",
-                  model="deepseek-chat",
-                  api_key=configurable.deepseek_api_key,
-                  base_url="https://api.deepseek.com",
-                  temperature=0)
+    # configurable = Configuration.from_runnable_config(config)
+    llm = ChatOpenAI(model="deepseek-chat",base_url="https://api.deepseek.com",api_key=deepseek_api_key,temperature=0)
+    # llm = get_llm("deepseek",
+    #               model="deepseek-chat",
+    #               api_key=configurable.deepseek_api_key,
+    #               base_url="https://api.deepseek.com",
+    #               temperature=0)
     
     # Set up JSON output parser
     class QueryOutput(BaseModel):
@@ -56,26 +65,33 @@ def web_research(state: SummaryState, config: RunnableConfig):
     # Configure
     configurable = Configuration.from_runnable_config(config)
 
+    try:
+        search_results = duckduckgo_search(state.search_query, max_results=3, fetch_full_page=configurable.fetch_full_page)
+        search_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=True)
+    except:
+        raise ValueError(f"Unsupported search API: {configurable.search_api}")
+
+
     # Handle both cases for search_api:
     # 1. When selected in Studio UI -> returns a string (e.g. "tavily")
     # 2. When using default -> returns an Enum (e.g. SearchAPI.TAVILY)
-    if isinstance(configurable.search_api, str):
-        search_api = configurable.search_api
-    else:
-        search_api = configurable.search_api.value
+    # if isinstance(configurable.search_api, str):
+    #     search_api = configurable.search_api
+    # else:
+    #     search_api = configurable.search_api.value
 
-    # Search the web
-    if search_api == "tavily":
-        search_results = tavily_search(state.search_query, include_raw_content=True, max_results=1)
-        search_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=True)
-    elif search_api == "perplexity":
-        search_results = perplexity_search(state.search_query, state.research_loop_count)
-        search_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
-    elif search_api == "duckduckgo":
-        search_results = duckduckgo_search(state.search_query, max_results=3, fetch_full_page=configurable.fetch_full_page)
-        search_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=True)
-    else:
-        raise ValueError(f"Unsupported search API: {configurable.search_api}")
+    # # Search the web
+    # if search_api == "tavily":
+    #     search_results = tavily_search(state.search_query, include_raw_content=True, max_results=1)
+    #     search_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=True)
+    # elif search_api == "perplexity":
+    #     search_results = perplexity_search(state.search_query, state.research_loop_count)
+    #     search_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    # elif search_api == "duckduckgo":
+    #     search_results = duckduckgo_search(state.search_query, max_results=3, fetch_full_page=configurable.fetch_full_page)
+    #     search_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=True)
+    # else:
+    #     raise ValueError(f"Unsupported search API: {configurable.search_api}")
 
     # Add the formatted search results to web_research_results
     state.web_research_results.append(search_str)
@@ -107,11 +123,12 @@ def summarize_sources(state: SummaryState, config: RunnableConfig):
 
     # Run the LLM
     configurable = Configuration.from_runnable_config(config)
-    llm = get_llm("deepseek",
-                  model="deepseek-chat",
-                  api_key=configurable.deepseek_api_key,
-                  base_url="https://api.deepseek.com",
-                  temperature=0)
+    llm = ChatOpenAI(model="deepseek-chat",base_url="https://api.deepseek.com",api_key=deepseek_api_key,temperature=0)
+    # llm = get_llm("deepseek",
+    #               model="deepseek-chat",
+    #               api_key=configurable.deepseek_api_key,
+    #               base_url="https://api.deepseek.com",
+    #               temperature=0)
     result = llm.invoke(
         [SystemMessage(content=summarizer_instructions),
         HumanMessage(content=human_message_content)]
@@ -133,11 +150,12 @@ def reflect_on_summary(state: SummaryState, config: RunnableConfig):
     print("Reflecting on the summary and generating a follow-up query...")
     # Generate a query
     configurable = Configuration.from_runnable_config(config)
-    llm = get_llm("deepseek",
-                  model="deepseek-chat",
-                  api_key=configurable.deepseek_api_key,
-                  base_url="https://api.deepseek.com",
-                  temperature=0)
+    llm = ChatOpenAI(model="deepseek-chat",base_url="https://api.deepseek.com",api_key=deepseek_api_key,temperature=0)
+    # llm = get_llm("deepseek",
+    #               model="deepseek-chat",
+    #               api_key=configurable.deepseek_api_key,
+    #               base_url="https://api.deepseek.com",
+    #               temperature=0)
     
     # Set up JSON output parser
     class QueryOutput(BaseModel):
@@ -192,19 +210,10 @@ def route_research(state: SummaryState, config: RunnableConfig) -> Literal["fina
 builder = StateGraph(SummaryState, input=SummaryStateInput, output=SummaryStateOutput, config_schema=Configuration)
 builder.add_node("generate_query", generate_query)
 builder.add_node("web_research", web_research)
-# builder.add_node("summarize_sources", summarize_sources)
-# builder.add_node("reflect_on_summary", reflect_on_summary)
-# builder.add_node("finalize_summary", finalize_summary)
-# builder.add_node("generate_podcast_script", generate_podcast_script)
-# builder.add_node("debug_state", debug_state)
 
 # Add edges
 builder.add_edge(START, "generate_query")
 builder.add_edge("generate_query", "web_research")
 builder.add_edge("web_research", END)
-# builder.add_edge("summarize_sources", "reflect_on_summary")
-# builder.add_conditional_edges("reflect_on_summary", route_research)
-# builder.add_edge("finalize_summary", "generate_podcast_script")
-# builder.add_edge("finalize_summary", END)
 
 graph = builder.compile()

@@ -92,6 +92,22 @@ def add_websearch(websearch: List[Dict[str, Any]]):
     Args:
         websearch: List of websearch dictionaries containing metadata and content
     """
+    for result in websearch:
+        metadata = {
+            "title": result.get("title", ""),
+            "url": result.get("url", ""),
+            "content": result.get("content", "")
+        }
+        
+        # Split the websearch text into chunks
+        chunks = text_splitter.create_documents(
+            texts=[result["content"]],
+            metadatas=[metadata]
+        )
+
+        # Add chunks to vector store
+        vector_store.milvus.add_documents(chunks)
+
     
 
 def query(question: str) -> str:

@@ -10,6 +10,7 @@ def websearch(query):
         print("Executing graph...")
         result = graph.invoke(input_data)
         print("Graph executed successfully.")
+        # return result
         return result['sources_gathered']['results']
     except Exception as e:
         print(f"Error during web search: {e}")
@@ -28,11 +29,12 @@ def main():
     
     if results:
         print("\nSearch Results:")
-        for i, result in enumerate(results['results'], 1):
-            print(f"\n--- Result {i} ---")
-            print(f"Title: {result.get('title', 'N/A')}")
-            print(f"URL: {result.get('url', 'N/A')}")
-            print(f"Content snippet: {result.get('content', 'N/A')[:150]}...")
+        print(results)
+        # for i, result in enumerate(results['results'], 1):
+        #     print(f"\n--- Result {i} ---")
+        #     print(f"Title: {result.get('title', 'N/A')}")
+        #     print(f"URL: {result.get('url', 'N/A')}")
+        #     print(f"Content snippet: {result.get('content', 'N/A')[:150]}...")
     else:
         print("No results found or an error occurred.")
 

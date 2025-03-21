@@ -18,16 +18,16 @@ class Configuration:
     """The configurable fields for the research assistant."""
     # max_web_research_loops: int = int(os.environ.get("MAX_WEB_RESEARCH_LOOPS", "3"))
     max_web_research_loops: int = field(default_factory=lambda: int(os.environ.get("MAX_WEB_RESEARCH_LOOPS") or "3"))
-    local_llm: str = os.environ.get("OLLAMA_MODEL", "llama3.2")
-    ollama_base_url: str = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/")
+    # local_llm: str = os.environ.get("OLLAMA_MODEL", "llama3.2")
+    # ollama_base_url: str = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/")
 
     deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY")
 
-    llm: ChatOpenAI = field(default_factory=lambda: ChatOpenAI(
-        model= "deepseek-chat",
-        api_key=os.getenv("DEEPSEEK_API_KEY"),
-        base_url="https://api.deepseek.com"
-    ))
+    # llm: ChatOpenAI = field(default_factory=lambda: ChatOpenAI(
+    #     model= "deepseek-chat",
+    #     api_key=os.getenv("DEEPSEEK_API_KEY"),
+    #     base_url="https://api.deepseek.com"
+    # ))
 
     search_api: SearchAPI = SearchAPI(os.environ.get("SEARCH_API", SearchAPI.DUCKDUCKGO.value))  # Default to DUCKDUCKGO
     fetch_full_page: bool = os.environ.get("FETCH_FULL_PAGE", "False").lower() in ("true", "1", "t")
