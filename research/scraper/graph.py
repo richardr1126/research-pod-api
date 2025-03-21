@@ -10,10 +10,10 @@ from pydantic import BaseModel#, Field
 from langchain_openai import ChatOpenAI
 from langgraph.graph import START, END, StateGraph
 
-from configuration import Configuration, SearchAPI
-from utils import deduplicate_and_format_sources, duckduckgo_search
-from state import SummaryState, SummaryStateInput, SummaryStateOutput
-from prompts import query_writer_instructions, summarizer_instructions, reflection_instructions, podcast_script_instructions
+from .configuration import Configuration, SearchAPI
+from .utils import deduplicate_and_format_sources, duckduckgo_search
+from .state import SummaryState, SummaryStateInput, SummaryStateOutput
+from .prompts import query_writer_instructions, summarizer_instructions, reflection_instructions, podcast_script_instructions
 
 import os
 deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")

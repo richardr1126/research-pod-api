@@ -1,12 +1,12 @@
-import os
-import requests
+# import os
+# import requests
 from typing import Dict, Any, List, Optional
 from langsmith import traceable
 # from tavily import TavilyClient
 from duckduckgo_search import DDGS
 from langchain_core.runnables import RunnableConfig
 
-from configuration import Configuration
+from .configuration import Configuration
 # from langchain_ollama import ChatOllama
 # from langchain_openai import ChatOpenAI
 # from langchain_anthropic import ChatAnthropic

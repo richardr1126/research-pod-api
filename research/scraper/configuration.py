@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from langchain_core.runnables import RunnableConfig
 from dataclasses import dataclass
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI
 
 from enum import Enum
 
