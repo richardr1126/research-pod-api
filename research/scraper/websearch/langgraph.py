@@ -9,7 +9,16 @@ from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel#, Field
 from langchain_openai import ChatOpenAI
 from langgraph.graph import START, END, StateGraph
+import logging
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Custom imports
 from .configuration import Configuration, SearchAPI
 from .utils import deduplicate_and_format_sources, duckduckgo_search
 from .state import SummaryState, SummaryStateInput, SummaryStateOutput
@@ -26,7 +35,7 @@ deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
 # Nodes
 def generate_query(state: SummaryState, config: RunnableConfig):
     """ Generate a query for web search """
-    print("Generating query...")
+    logger.info("Generating query...")
     # Format the prompt
     query_writer_instructions_formatted = query_writer_instructions.format(research_topic=state.research_topic)
     
@@ -56,7 +65,7 @@ def generate_query(state: SummaryState, config: RunnableConfig):
 
 def web_research(state: SummaryState, config: RunnableConfig):
     """ Gather information from the web """
-    print("Gathering information from the web...")
+    logger.info("Gathering information from the web...")
     # Configure
     configurable = Configuration.from_runnable_config(config)
 
@@ -74,7 +83,7 @@ def web_research(state: SummaryState, config: RunnableConfig):
 
 def summarize_sources(state: SummaryState, config: RunnableConfig):
     """ Summarize the gathered sources """
-    print("Summarizing the gathered sources...")
+    logger.info("Summarizing the gathered sources...")
     # Existing summary
     existing_summary = state.running_summary
 
@@ -108,7 +117,7 @@ def summarize_sources(state: SummaryState, config: RunnableConfig):
 
 def reflect_on_summary(state: SummaryState, config: RunnableConfig):
     """ Reflect on the summary and generate a follow-up query """
-    print("Reflecting on the summary and generating a follow-up query...")
+    logger.info("Reflecting on the summary and generating a follow-up query...")
     # Generate a query
     configurable = Configuration.from_runnable_config(config)
     llm = ChatOpenAI(model="deepseek-chat",base_url="https://api.deepseek.com",api_key=deepseek_api_key,temperature=0)
@@ -141,7 +150,7 @@ def reflect_on_summary(state: SummaryState, config: RunnableConfig):
 
 def finalize_summary(state: SummaryState):
     """ Finalize the summary """
-    print("Finalizing the summary...")
+    logger.info("Finalizing the summary...")
     # Format all accumulated sources into a single bulleted list
     all_sources = "\n".join(source for source in state.sources_gathered)
     state.running_summary = f"## Summary\n\n{state.running_summary}\n\n ### Sources:\n{all_sources}"
@@ -149,13 +158,13 @@ def finalize_summary(state: SummaryState):
 
 def debug_state(state: SummaryState):
     """ Debug the current state """
-    print(f"DEBUG STATE: {vars(state)}")
+    logger.info(f"DEBUG STATE: {vars(state)}")
     # Just pass through without modifying
     return {}
 
 def route_research(state: SummaryState, config: RunnableConfig) -> Literal["finalize_summary", "web_research"]:
     """ Route the research based on the follow-up query """
-    print("Routing the research...")
+    logger.info("Routing the research...")
     configurable = Configuration.from_runnable_config(config)
     if state.research_loop_count <= configurable.max_web_research_loops:
         return "web_research"
