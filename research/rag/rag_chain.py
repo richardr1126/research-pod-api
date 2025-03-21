@@ -6,19 +6,13 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_deepseek import ChatDeepSeek
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from typing import List, Dict, Any
+from typing import List, Any
 from . import vector_store
 
 # Initialize components
 llm = ChatDeepSeek(
     model='deepseek-chat',
     api_key=os.getenv("DEEPSEEK_API_KEY")
-)
-
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=2000,
-    chunk_overlap=200
 )
 
 # Define the prompt template for generating AI responses
@@ -56,57 +50,6 @@ chain = (
     | llm
     | StrOutputParser()
 )
-
-def add_papers(papers: List[Dict[str, Any]]):
-    """
-    Add research papers to the vector store.
-    
-    Args:
-        papers: List of paper dictionaries containing metadata and content
-    """
-    for paper in papers:
-        # Create metadata dictionary
-        metadata = {
-            "title": paper.get("title", ""),
-            "authors": paper.get("authors", ""),
-            "doi": paper.get("doi", ""),
-            "date": paper.get("date", ""),
-            "journal": paper.get("journal", ""),
-            "abstract": paper.get("abstract", "")
-        }
-        
-        # Split the paper text into chunks
-        chunks = text_splitter.create_documents(
-            texts=[paper["text"]],
-            metadatas=[metadata]
-        )
-        
-        # Add chunks to vector store
-        vector_store.milvus.add_documents(chunks)
-
-
-def add_websearch(websearch: List[Dict[str, Any]]):
-    """
-    Add websearch to the vector store.
-    
-    Args:
-        websearch: List of websearch dictionaries containing metadata and content
-    """
-    for result in websearch:
-        metadata = {
-            "title": result.get("title", ""),
-            "url": result.get("url", ""),
-            "content": result.get("content", "")
-        }
-        
-        # Split the websearch text into chunks
-        chunks = text_splitter.create_documents(
-            texts=[result["content"]],
-            metadatas=[metadata]
-        )
-
-        # Add chunks to vector store
-        vector_store.milvus.add_documents(chunks)
 
     
 

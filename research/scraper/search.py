@@ -1,5 +1,12 @@
 from .websearch import langgraph
-# import sys
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 def websearch(query):
@@ -7,13 +14,19 @@ def websearch(query):
         input_data = {
             "research_topic": query
         }
-        print("Executing graph...")
-        result = langgraph.invoke(input_data)
-        print("Graph executed successfully.")
-        # return result
-        return result['sources_gathered']['results']
+        logger.info("Executing graph...")
+        result = langgraph.graph.invoke(input_data)
+        logger.info("Graph executed successfully.")
+        # return result and source
+
+        # Source with url, title
+        ddg_sources = []
+        for result in result['sources_gathered']['results']:
+            ddg_sources.append({"title": result['title'], "url": result['url']})
+
+        return result['sources_gathered']['results'], ddg_sources
     except Exception as e:
-        print(f"Error during web search: {e}")
+        logger.error(f"Error during web search: {e}")
         return None
         
 # TESTING #

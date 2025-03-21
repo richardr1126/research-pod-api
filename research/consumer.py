@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from scraper.scrape import scrape_arxiv
 from rag import rag_chain
+from rag import vector_store
 import logging
 import time
 from threading import Thread
@@ -111,28 +112,29 @@ def process_message(message):
         
         send_progress_update(pod_id, "IN_PROGRESS", 33, "Scraping papers")
         # Scrape papers
-        papers = scrape_arxiv(query, max_papers=3)
-        logger.info(f"Scraped {len(papers)} results for pod {pod_id}")
+        papers, papers_sources = scrape_arxiv(query, max_papers=3)
+        logger.info(f"Scraped {len(papers_sources)} results for pod {pod_id}")
         
         # Log the structure of the papers object ### Added by Jack to see the structure of the papers object
-        logger.info(f"Papers type: {type(papers)}")
-        if papers and len(papers) > 0:
-            logger.info(f"Sample paper structure: {json.dumps(papers[0], indent=2, default=str)}")
-            logger.info(f"Paper keys: {list(papers[0].keys()) if isinstance(papers[0], dict) else 'Not a dictionary'}")
-        else:
-            logger.info("No papers were returned from scraping")
+        # logger.info(f"Papers type: {type(papers)}")
+        # if papers and len(papers) > 0:
+        #     logger.info(f"Sample paper structure: {json.dumps(papers[0], indent=2, default=str)}")
+        #     logger.info(f"Paper keys: {list(papers[0].keys()) if isinstance(papers[0], dict) else 'Not a dictionary'}")
+        # else:
+        #     logger.info("No papers were returned from scraping")
 
-        # Web Seach
+        send_progress_update(pod_id, "IN_PROGRESS", 50, "Processing papers")
+        # Web Search
         logger.info("Web searching...")
-        ddg_results = websearch(query) # This returns as a list of dictionaries with title, url, and content
-
+        ddg_results, ddg_sources = websearch(query) # This returns as a list of dictionaries with title, url, and content
+        logger.info(f"Scraped {len(ddg_sources)} web search results for pod {pod_id}")
         
         send_progress_update(pod_id, "IN_PROGRESS", 66, "Adding papers/web search results to vector store")
         # Add papers to vector store
-        rag_chain.add_papers(papers)
+        vector_store.add_documents(papers)
         logger.info(f"Added papers to vector store for pod {pod_id}")
 
-        rag_chain.add_websearch(ddg_results)
+        vector_store.add_documents(ddg_results)
         logger.info(f"Added web search results to vector store for pod {pod_id}")
         send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating summary")
         # Generate summary
@@ -142,7 +144,9 @@ def process_message(message):
         response = {
             "pod_id": pod_id,
             "query": query,
-            "summary": summary
+            "summary": summary,
+            "sources_arxiv": papers_sources,
+            "sources_ddg": ddg_sources
         }
 
         # Send response to Kafka for now and mark as complete
