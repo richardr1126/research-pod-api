@@ -84,6 +84,16 @@ def add_papers(papers: List[Dict[str, Any]]):
         # Add chunks to vector store
         vector_store.milvus.add_documents(chunks)
 
+
+def add_websearch(websearch: List[Dict[str, Any]]):
+    """
+    Add websearch to the vector store.
+    
+    Args:
+        websearch: List of websearch dictionaries containing metadata and content
+    """
+    
+
 def query(question: str) -> str:
     """
     Query the RAG chain with a question.

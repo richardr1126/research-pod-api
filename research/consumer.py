@@ -113,6 +113,13 @@ def process_message(message):
         papers = scrape_arxiv(query, max_papers=3)
         logger.info(f"Scraped {len(papers)} results for pod {pod_id}")
         
+        # Log the structure of the papers object
+        logger.info(f"Papers type: {type(papers)}")
+        if papers and len(papers) > 0:
+            logger.info(f"Sample paper structure: {json.dumps(papers[0], indent=2, default=str)}")
+            logger.info(f"Paper keys: {list(papers[0].keys()) if isinstance(papers[0], dict) else 'Not a dictionary'}")
+        else:
+            logger.info("No papers were returned from scraping")
         send_progress_update(pod_id, "IN_PROGRESS", 66, "Adding papers to vector store")
         # Add papers to vector store
         rag_chain.add_papers(papers)
