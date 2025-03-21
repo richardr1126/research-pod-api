@@ -16,6 +16,7 @@ import threading
 import redis
 import socket
 from scraper.search import websearch
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
