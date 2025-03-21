@@ -134,7 +134,7 @@ def process_message(message):
         vector_store.add_documents(papers)
         logger.info(f"Added papers to vector store for pod {pod_id}")
 
-        vector_store.add_documents(ddg_results)
+        vector_store.add_documents(ddg_sources) # Only add sources right now because the other code is not working
         logger.info(f"Added web search results to vector store for pod {pod_id}")
         send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating summary")
         # Generate summary

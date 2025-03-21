@@ -18,13 +18,14 @@ def websearch(query):
         result = langgraph.graph.invoke(input_data)
         logger.info("Graph executed successfully.")
         # return result and source
+        logger.info(f"Result: {result}")
+        # Result only contains sources right now, none of the other code is working
 
-        # Source with url, title
-        ddg_sources = []
-        for result in result['sources_gathered']['results']:
-            ddg_sources.append({"title": result['title'], "url": result['url']})
+        # return only sources
+        ddg_sources = result['sources_gathered']['results']
+        ddg_results = "Not ready only returning sources"
 
-        return result['sources_gathered']['results'], ddg_sources
+        return ddg_results, ddg_sources
     except Exception as e:
         logger.error(f"Error during web search: {e}")
         return None
