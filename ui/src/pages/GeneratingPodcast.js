@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
-import EventStreamListener from '../components/EventStreamListener';
+import useEventStream from '../hooks/useEventStream';
 
 function GeneratingPodcast() {
-  const { jobId } = useParams();
+  const { podId } = useParams();
   const navigate = useNavigate();
   
   const [status, setStatus] = useState('QUEUED');
@@ -18,14 +18,20 @@ function GeneratingPodcast() {
   useEffect(() => {
     const checkJobStatus = async () => {
       try {
-        const result = await apiService.checkStatus(jobId);
+        const result = await apiService.checkStatus(podId);
         
         setStatus(result.status);
         setProgress(result.progress || 0);
         
+        // Handle error status from the API
+        if (result.status === 'ERROR') {
+          setError('The server reported an error with this podcast generation');
+          return;
+        }
+
         // If completed, navigate directly to the podcast player
         if (result.status === 'COMPLETED') {
-          navigate(`/watch/${jobId}`);
+          navigate(`/play/${podId}`);
           return;
         }
         
@@ -42,7 +48,7 @@ function GeneratingPodcast() {
     };
     
     checkJobStatus();
-  }, [jobId, navigate]);
+  }, [podId, navigate]);
   
   // Handle status updates from EventStreamListener
   const handleStatusUpdate = (data) => {
@@ -53,7 +59,7 @@ function GeneratingPodcast() {
     // If completed, navigate to the podcast player
     if (data.status === 'COMPLETED') {
       setTimeout(() => {
-        navigate(`/watch/${jobId}`);
+        navigate(`/watch/${podId}`);
       }, 1500); // Short delay to show completion
     }
   };
@@ -81,6 +87,14 @@ function GeneratingPodcast() {
     setStatus('ERROR');
   };
   
+  // useEventStream to listen to EventStream updates
+  const {isConnected } = useEventStream({
+    url: eventStreamUrl,
+    onStatusUpdate: handleStatusUpdate,
+    onPapersUpdate: handlePapersUpdate,
+    onAnalysisUpdate: handleAnalysisUpdate,
+    onError: handleError
+  });
   // Function to cancel generation
   const handleCancel = () => {
     // Simple navigation back to home, no history to update
@@ -91,15 +105,13 @@ function GeneratingPodcast() {
     <div className="generating-container">
       <h2>Generating Your Podcast</h2>
       
-      {eventStreamUrl && (
-        <EventStreamListener
-          url={eventStreamUrl}
-          onStatusUpdate={handleStatusUpdate}
-          onPapersUpdate={handlePapersUpdate}
-          onAnalysisUpdate={handleAnalysisUpdate}
-          onError={handleError}
-        />
-      )}
+      <div className="connection-status">
+        {eventStreamUrl && (
+          <span className={`connection-indicator-${isConnected ? 'connected' : 'disconnected'}`}>
+            {isConnected ? 'Connected to EventStream' : 'Connecting...'}
+          </span>
+        )}
+        </div>
       
       <div className="status-display">
         <div className="progress-bar-container">

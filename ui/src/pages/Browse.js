@@ -73,6 +73,7 @@ function Browse() {
     alert(`Download functionality would be implemented here for podcast ID: ${podcastId}`);
   };
 
+  // Handle form submission to generate a new podcast
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -87,13 +88,13 @@ function Browse() {
       if (result.status === 'success') {
         // Store the job details locally
         localStorage.setItem('currentPodcastJob', JSON.stringify({
-          jobId: result.job_id,
+          podId: result.pod_id,
           query: query,
           timestamp: new Date().toISOString()
         }));
         
         // Navigate to the generating status page
-        navigate(`/generating/${result.job_id}`);
+        navigate(`/generating/${result.pod_id}`);
       } else {
         setError('Failed to start podcast generation. Please try again.');
       }
@@ -141,13 +142,13 @@ function Browse() {
               <div className="podcast-controls">
                 <button 
                   className="play-button"
-                  onClick={() => handlePlay(podcast.id)}
+                  onClick={() => handlePlay(podcast.pod_id)}
                 >
                   Play
                 </button>
                 <button 
                   className="download-button"
-                  onClick={() => handleDownload(podcast.id)}
+                  onClick={() => handleDownload(podcast.pod_id)}
                 >
                   Download
                 </button>

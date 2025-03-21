@@ -43,6 +43,19 @@ This project requires Node.js and npm. Download the latest version of Node.js to
 
 # Dev Commands
 * `npm test` Run jest tests
-* `npm run build` build app for production
-* `npm start` build and run app locally (good for manual testing)
-* `npm run deploy` (NOT IMPLEMENTED IN THIS REPO) build production version and deploy to GitHub pages.
+* `npm run build` Build app for production
+* `npm start` Build and run app locally. Must have a local instance of the API endpoint running for this to work (see section below).
+* `npm run deploy` Build production version and deploy to GitHub pages.
+
+# Setting up the API to run a local build.
+The project is configured to use a local API endpoint for dev builds (`npm start`), and a remote API endpoint for production builds (`npm run build` and `npm run deploy`). This ensures that the API endpoint is in sync with the UI (as the remote endpoint is built from a different branch of the repo) and allows the developer to monitor the API from both ends when testing a dev build.
+The Dev build will still run without a local API endpoint, but all API functionality will be lost.
+#### *To set-up and run the API locally with Docker, follow the instructions the README in the root directory.*
+
+# TODO
+
+* Implement Play page with functionality listed
+* Generate Button should either take the user to a loading screen or prevent the user from clicking away while the podcast is generating.
+* Add a Sources button to each podcast in Browse, should generate a pop-up or a box in the UI listing the sources.
+* Browse should be separated into rows and include recommended, as well as various topics
+

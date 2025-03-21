@@ -17,8 +17,8 @@ function AppContent() {
           <Routes>
             <Route path="/create" element={<Create />} />
             <Route path="/browse" element={<Browse />} />
-            <Route path="/Play/:jobId" element={<Play />} />
-            <Route path="/generating/:jobId" element={<GeneratingPodcast />} />
+            <Route path="/Play/:podId" element={<Play />} />
+            <Route path="/generating/:podId" element={<GeneratingPodcast />} />
             <Route path="*" element={<Navigate to="/browse" replace />} />
           </Routes>
         </main>

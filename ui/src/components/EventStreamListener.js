@@ -44,6 +44,6 @@ const EventStreamListener = ({ url, onStatusUpdate, onPapersUpdate, onAnalysisUp
         };
     }, [url, onStatusUpdate, onPapersUpdate, onAnalysisUpdate, onError]);
     
-    return { isConnected };
+    return null;
 }
 export default EventStreamListener;
