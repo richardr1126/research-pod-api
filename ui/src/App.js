@@ -4,7 +4,7 @@ import './App.css';
 import NavigationSidebar from './components/NavigationSidebar';
 import RecommenderSidebar from './components/RecommenderSidebar';
 import Create from './pages/Create';
-import Browse from './pages/Browse';
+import Browse from './pages/browse/Browse';
 import Play from './pages/Play';
 import GeneratingPodcast from './pages/GeneratingPodcast';
 

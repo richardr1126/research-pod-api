@@ -63,38 +63,20 @@ function GeneratingPodcast() {
       }, 1500); // Short delay to show completion
     }
   };
-  
-  // Handle paper updates (in this case, these could be podcast segments or chapters)
-  const handlePapersUpdate = (data) => {
-    // This could be sections of the podcast or relevant sources
-    setPodcastData(prevData => ({
-      ...prevData,
-      papers: data.papers
-    }));
-  };
-  
-  // Handle analysis updates (transcript data or metadata)
-  const handleAnalysisUpdate = (data) => {
-    setPodcastData(prevData => ({
-      ...prevData,
-      analysis: data
-    }));
-  };
-  
-  // Handle errors
-  const handleError = (data) => {
+
+  const handleError= (data) => {
     setError(data.error);
     setStatus('ERROR');
   };
   
   // useEventStream to listen to EventStream updates
-  const {isConnected } = useEventStream({
-    url: eventStreamUrl,
-    onStatusUpdate: handleStatusUpdate,
-    onPapersUpdate: handlePapersUpdate,
-    onAnalysisUpdate: handleAnalysisUpdate,
-    onError: handleError
-  });
+  const {isConnected } = useEventStream(
+    {
+      url: eventStreamUrl,
+      onStatusUpdate: handleStatusUpdate,
+      onError: handleError 
+    }
+  );
   // Function to cancel generation
   const handleCancel = () => {
     // Simple navigation back to home, no history to update

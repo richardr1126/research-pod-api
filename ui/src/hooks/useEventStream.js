@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // This custom hook manages an EventSource connection to a server for real-time updates.
-const useEventStream= ({url, onStatusUpdate, onPapersUpdate, onAnalysisUpdate, onError}) => {
+const useEventStream= ({url, onStatusUpdate, onError}) => {
     const [isConnected, setConnected] = useState(false);
 
     useEffect(() => {
@@ -31,37 +31,6 @@ const useEventStream= ({url, onStatusUpdate, onPapersUpdate, onAnalysisUpdate, o
                 }
             }
 
-            if (onPapersUpdate){
-                try{
-                    eventSource.addEventListener('papers', (event) => {
-                    const data = JSON.parse(event.data);
-                    onPapersUpdate(data);
-                });
-                } catch (error) {
-                    console.error('Error parsing papers event:', error);
-                    onError?.({error: 'Error parsing papers event'});
-                }
-            }
-
-            if (onAnalysisUpdate){
-                try{
-                    eventSource.addEventListener('analysis', (event) => {
-                    const data = JSON.parse(event.data);
-                    onAnalysisUpdate(data);
-                });
-                } catch (error) {
-                    console.error('Error parsing analysis event:', error);
-                    onError?.({error: 'Error parsing analysis event'});
-                }
-            }
-
-            if (onError){
-                eventSource.addEventListener('error', (event) => {
-                    const data = JSON.parse(event.data);
-                    onError?.(data);
-                });
-            }
-
             eventSource.onerror = (event) => {
                 console.error('EventSource connection error:', event);
                 onError?.({error: 'EventStream connection failed'});
@@ -78,7 +47,7 @@ const useEventStream= ({url, onStatusUpdate, onPapersUpdate, onAnalysisUpdate, o
                 setConnected(false);
             }
         };
-}, [url, onStatusUpdate, onPapersUpdate, onAnalysisUpdate, onError]);
+}, [url, onStatusUpdate]);
     return { isConnected };
 };
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiService from '../services/apiService';
+import apiService from '../../services/apiService';
+import PodcastCard from './PodcastCard';
+
 function Browse() {
   const [podcasts, setPodcasts] = useState([]);
   const [filteredPodcasts, setFilteredPodcasts] = useState([]);
@@ -17,10 +19,22 @@ function Browse() {
       try {
         await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate a delay for loading podcasts
         // Mock podcast data
-        const formattedPodcasts = () => [
-          { id: 1, title: 'The Future of AI', duration: '25:43', date: '2025-03-05' },
-          { id: 2, title: 'Space Exploration in 2025', duration: '32:17', date: '2025-03-01' },
-          { id: 3, title: 'Climate Change Solutions', duration: '28:55', date: '2025-02-25' },
+        const formattedPodcasts = [
+          { pod_id: 1, title: 'The Future of AI', duration: '25:43', date: '2025-03-05', sources: [
+            { title: 'MIT Technology Review: AI Advancements', url: 'https://example.com/mit-ai-review' },
+            { title: 'Stanford AI Lab Research', url: 'https://example.com/stanford-ai-lab' },
+            { title: 'Nature: Machine Learning Special', url: 'https://example.com/nature-ml' }
+          ] },
+          { pod_id: 2, title: 'Space Exploration in 2025', duration: '32:17', date: '2025-03-01', sources: [
+            { title: 'NASA Official Reports', url: 'https://example.com/nasa-reports' },
+            { title: 'SpaceX Mission Updates', url: 'https://example.com/spacex-updates' },
+            { title: 'Astrophysics Journal', url: 'https://example.com/astrophysics-journal' }
+          ]  },
+          { pod_id: 3, title: 'Climate Change Solutions', duration: '28:55', date: '2025-02-25', sources: [
+            { title: 'IPCC Latest Reports', url: 'https://example.com/ipcc-reports' },
+            { title: 'Environmental Science & Technology', url: 'https://example.com/env-sci-tech' },
+            { title: 'Global Climate Action Summit', url: 'https://example.com/climate-summit' }
+          ] },
         ];
         setPodcasts(formattedPodcasts);
         setFilteredPodcasts(formattedPodcasts);
@@ -61,16 +75,6 @@ function Browse() {
     );
     
     setFilteredPodcasts(filtered);
-  };
-  
-  // Handle play button click
-  const handlePlay = (podcastId) => {
-    navigate(`/play/${podcastId}`);
-  };
-  
-  // Mock function for download (would be implemented with actual file download in a real app)
-  const handleDownload = (podcastId) => {
-    alert(`Download functionality would be implemented here for podcast ID: ${podcastId}`);
   };
 
   // Handle form submission to generate a new podcast
@@ -133,27 +137,9 @@ function Browse() {
       ) : filteredPodcasts.length > 0 ? (
         <div className="podcasts-list">
           {filteredPodcasts.map(podcast => (
-            <div key={podcast.id} className="podcast-card">
-              <h3>{podcast.title}</h3>
-              <div className="podcast-details">
-                <span>Duration: {podcast.duration}</span>
-                <span>Generated on: {podcast.date}</span>
-              </div>
-              <div className="podcast-controls">
-                <button 
-                  className="play-button"
-                  onClick={() => handlePlay(podcast.pod_id)}
-                >
-                  Play
-                </button>
-                <button 
-                  className="download-button"
-                  onClick={() => handleDownload(podcast.pod_id)}
-                >
-                  Download
-                </button>
-              </div>
-            </div>
+            <PodcastCard
+              podcast={podcast}
+            />
           ))}
         </div>
       ) : (

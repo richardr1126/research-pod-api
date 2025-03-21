@@ -285,6 +285,52 @@ body {
   color: #333;
 }
 
+.podcast-controls {
+  display: flex;
+  gap: 10px; /* Adds space between buttons */
+}
+
+.sources-button {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.sources-button:hover {
+  background-color: #5a6268;
+}
+
+.sources-container {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.sources-list {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 0;
+}
+
+.sources-list li {
+  margin-bottom: 5px;
+}
+
+.sources-list li a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.sources-list li a:hover {
+  text-decoration: underline;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .app {
