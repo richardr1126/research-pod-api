@@ -76,10 +76,12 @@ def web_research(state: SummaryState, config: RunnableConfig):
         raise ValueError(f"Unsupported search API: {configurable.search_api}")
 
     # Add the formatted search results to web_research_results
-    state.web_research_results.append(search_str)
+    # state.web_research_results.append(search_str)
     
     # Return the search results dictionary
-    return {"sources_gathered": search_results}
+    # return {"sources_gathered": search_results}
+    return {"sources_gathered": search_results, "research_loop_count": state.research_loop_count + 1, "web_research_results": [search_str]}
+
 
 def summarize_sources(state: SummaryState, config: RunnableConfig):
     """ Summarize the gathered sources """
@@ -166,7 +168,8 @@ def route_research(state: SummaryState, config: RunnableConfig) -> Literal["fina
     """ Route the research based on the follow-up query """
     logger.info("Routing the research...")
     configurable = Configuration.from_runnable_config(config)
-    if state.research_loop_count <= configurable.max_web_research_loops:
+    # if state.research_loop_count <= configurable.max_web_research_loops:
+    if state.research_loop_count <= 1:
         return "web_research"
     else:
         return "finalize_summary"
@@ -175,10 +178,19 @@ def route_research(state: SummaryState, config: RunnableConfig) -> Literal["fina
 builder = StateGraph(SummaryState, input=SummaryStateInput, output=SummaryStateOutput, config_schema=Configuration)
 builder.add_node("generate_query", generate_query)
 builder.add_node("web_research", web_research)
+builder.add_node("summarize_sources", summarize_sources)
+builder.add_node("reflect_on_summary", reflect_on_summary)
+builder.add_node("finalize_summary", finalize_summary)
+# builder.add_node("generate_podcast_script", generate_podcast_script)
+# builder.add_node("debug_state", debug_state)
 
 # Add edges
 builder.add_edge(START, "generate_query")
 builder.add_edge("generate_query", "web_research")
-builder.add_edge("web_research", END)
+builder.add_edge("web_research", "summarize_sources")
+builder.add_edge("summarize_sources", "reflect_on_summary")
+builder.add_conditional_edges("reflect_on_summary", route_research)
+# builder.add_edge("finalize_summary", "generate_podcast_script")
+builder.add_edge("finalize_summary", END)
 
 graph = builder.compile()

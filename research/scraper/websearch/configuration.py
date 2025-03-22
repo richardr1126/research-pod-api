@@ -16,8 +16,9 @@ class SearchAPI(Enum):
 @dataclass(kw_only=True)
 class Configuration:
     """The configurable fields for the research assistant."""
-    max_web_research_loops: int = field(default_factory=lambda: int(os.environ.get("MAX_WEB_RESEARCH_LOOPS") or "3"))
-
+    # max_web_research_loops: int = field(default_factory=lambda: int(os.environ.get("MAX_WEB_RESEARCH_LOOPS") or "2"))
+    max_web_research_loops: int = 3
+    
     deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY")
 
     search_api: SearchAPI = SearchAPI(os.environ.get("SEARCH_API", SearchAPI.DUCKDUCKGO.value))  # Default to DUCKDUCKGO
