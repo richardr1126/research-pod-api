@@ -4,10 +4,6 @@ metadata:
   name: {{ include "kokoro-fastapi.fullname" . }}-kokoro-tts-service
   labels:
     {{- include "kokoro-fastapi.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:

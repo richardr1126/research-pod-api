@@ -316,7 +316,7 @@ if [ "$GPU" = true ]; then
   # Wait for GPU operator to be ready
   # nvidia-cuda-validator-bbb2l                                   0/1     Completed   0          102s
   # nvidia-cuda-validator-jq87r                                   0/1     Completed   0 
-  kubectl wait --for=condition=Ready pod -l app=nvidia-cuda-validator --timeout=600s -n gpu-operator
+  kubectl wait --for=condition=Ready pod -l app=nvidia-cuda-validator --timeout=600s -n gpu-operator  
 
   echo "Installing Kokoro-FastAPI chart..."
   if [ "$AZURE" = true ]; then
@@ -325,7 +325,7 @@ if [ "$GPU" = true ]; then
       --wait
   elif [ "$GCP" = true ]; then
     helm upgrade --install kokoro-fastapi ./kokoro-fastapi \
-      -f ./kokoro-fastapi/gke-value.yaml \
+      -f ./kokoro-fastapi/gke-values.yaml \
       --wait
   else
     echo "Not installing Kokoro on DigitalOcean."
