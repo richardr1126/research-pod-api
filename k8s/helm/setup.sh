@@ -12,6 +12,7 @@ DIGITAL_OCEAN=false
 AZURE=false
 GCP=false
 CLEAR=false
+GPU=false
 
 for arg in "$@"; do
   if [ "$arg" == "--build" ]; then
@@ -24,6 +25,11 @@ for arg in "$@"; do
     GCP=true
   elif [ "$arg" == "--clear" ]; then
     CLEAR=true
+  elif [ "$arg" == "--gpu" ]; then
+    GPU=true
+  else
+    echo "Unknown parameter: $arg"
+    exit 1
   fi
 done
 
@@ -151,6 +157,7 @@ helm repo add kafbat-ui https://kafbat.github.io/helm-charts
 helm repo add jetstack https://charts.jetstack.io
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo add yugabytedb https://charts.yugabyte.com
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
 helm repo update
 
 # Install cert-manager for Let's Encrypt
@@ -296,6 +303,36 @@ helm upgrade --install web-api ./web-api \
   --set image.repository=${WEB_API_IMAGE} \
   --set image.pullPolicy=${IMAGE_PULL_POLICY} \
   --wait
+
+if [ "$GPU" = true ]; then
+  echo "Installing GPU Operator..."
+  helm upgrade -i gpu-operator nvidia/gpu-operator \
+    --version v24.9.2 \
+    --namespace gpu-operator --create-namespace \
+    -f gpu-operator-values.yaml \
+    --wait
+
+  echo "GPU operator install drivers..., this may take a while"
+  # Wait for GPU operator to be ready
+  # nvidia-cuda-validator-bbb2l                                   0/1     Completed   0          102s
+  # nvidia-cuda-validator-jq87r                                   0/1     Completed   0 
+  kubectl wait --for=condition=Ready pod -l app=nvidia-cuda-validator --timeout=600s -n gpu-operator
+
+  echo "Installing Kokoro-FastAPI chart..."
+  if [ "$AZURE" = true ]; then
+    helm upgrade --install kokoro-fastapi ./kokoro-fastapi \
+      -f ./kokoro-fastapi/aks-values.yaml \
+      --wait
+  elif [ "$GCP" = true ]; then
+    helm upgrade --install kokoro-fastapi ./kokoro-fastapi \
+      -f ./kokoro-fastapi/gke-value.yaml \
+      --wait
+  else
+    echo "Not installing Kokoro on DigitalOcean."
+    exit 1
+  fi
+fi
+
 
 # Install prometheus stack
 #echo "Installing Prometheus stack..."

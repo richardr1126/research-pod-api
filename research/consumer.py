@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from scraper.scrape import scrape_arxiv
 from rag import rag_chain
+from rag import vector_store
 import logging
 import time
 from threading import Thread
@@ -110,12 +111,12 @@ def process_message(message):
         
         send_progress_update(pod_id, "IN_PROGRESS", 33, "Scraping papers")
         # Scrape papers
-        papers = scrape_arxiv(query, max_papers=3)
-        logger.info(f"Scraped {len(papers)} results for pod {pod_id}")
+        papers, papers_sources = scrape_arxiv(query, max_papers=3)
+        logger.info(f"Scraped {len(papers_sources)} results for pod {pod_id}")
         
         send_progress_update(pod_id, "IN_PROGRESS", 66, "Adding papers to vector store")
         # Add papers to vector store
-        rag_chain.add_papers(papers)
+        vector_store.add_documents(papers)
         logger.info(f"Added papers to vector store for pod {pod_id}")
         
         send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating summary")
@@ -126,7 +127,8 @@ def process_message(message):
         response = {
             "pod_id": pod_id,
             "query": query,
-            "summary": summary
+            "summary": summary,
+            "sources_arxiv": papers_sources
         }
 
         # Send response to Kafka for now and mark as complete

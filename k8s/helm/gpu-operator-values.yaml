@@ -1,0 +1,32 @@
+daemonsets:
+  tolerations:
+    - key: "sku"
+      operator: Equal
+      value: "gpu"
+      effect: NoSchedule
+    - key: "kubernetes.azure.com/scalesetpriority"
+      operator: Equal
+      value: "spot"
+      effect: NoSchedule
+
+node-feature-discovery:
+  master:
+    tolerations:
+      - key: "sku"
+        operator: Equal
+        value: "gpu"
+        effect: NoSchedule
+      - key: "kubernetes.azure.com/scalesetpriority"
+        operator: Equal
+        value: "spot"
+        effect: NoSchedule
+  worker:
+    tolerations:
+      - key: "sku"
+        operator: Equal
+        value: "gpu"
+        effect: NoSchedule
+      - key: "kubernetes.azure.com/scalesetpriority"
+        operator: Equal
+        value: "spot"
+        effect: NoSchedule

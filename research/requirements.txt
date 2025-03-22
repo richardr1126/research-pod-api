@@ -20,3 +20,7 @@ langchain-deepseek
 langchain-openai
 langchain-azure-ai
 langchain-ollama
+# Websearch dependencies
+duckduckgo-search
+tavily-python
+langgraph

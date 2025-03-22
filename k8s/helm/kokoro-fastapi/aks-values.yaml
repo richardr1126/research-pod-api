@@ -1,0 +1,46 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/remsky/kokoro-fastapi-gpu
+  tag: v0.2.0
+  pullPolicy: IfNotPresent
+
+kokoroTTS:
+  repository: ghcr.io/remsky/kokoro-fastapi-gpu
+  tag: v0.2.0
+  pullPolicy: IfNotPresent
+  replicaCount: 2
+
+tolerations:
+  - key: "kubernetes.azure.com/scalesetpriority"
+    operator: Equal
+    value: "spot"
+    effect: NoSchedule
+  - key: "sku"
+    operator: Equal
+    value: "gpu"
+    effect: NoSchedule
+
+# service:
+#   type: LoadBalancer
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: koko.richardr.dev
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+  host:
+    name: koko.richardr.dev
+    endpoints:
+      - paths:
+          - "/"
+        serviceName: "fastapi"
+        servicePort: 8880
+  tls:
+    - secretName: kokoro-fastapi-tls
+      hosts:
+        - koko.richardr.dev
