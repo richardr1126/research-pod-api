@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from scraper.scrape import scrape_arxiv
 from rag import rag_chain
+from rag import rag_chain_podcast
 from rag import vector_store
 import logging
 import time
@@ -139,6 +140,8 @@ def process_message(message):
         send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating summary")
         # Generate summary
         summary = rag_chain.query(query)
+        # Generate podcast script
+        podcast_script = rag_chain_podcast.query(query)
         
         # Prepare response
         response = {
@@ -146,7 +149,8 @@ def process_message(message):
             "query": query,
             "summary": summary,
             "sources_arxiv": papers_sources,
-            "sources_ddg": ddg_sources
+            "sources_ddg": ddg_sources,
+            "podcast_script": podcast_script
         }
 
         # Send response to Kafka for now and mark as complete
