@@ -18,18 +18,18 @@ llm = ChatDeepSeek(
 # Define the prompt template for generating AI responses
 prompt = PromptTemplate(
     template="""
-    Human: You are an expert podcast script writer for a research podcast generator. This process started with a user topic: {question}. Your task is to generate a podcast script based solely on the context provided below, which reflects detailed research on the topic.
+    Human: You are an expert podcast script writer for a research podcast generator. This process started with a user topic: {research_topic}. Your task is to generate a podcast script that will be read verbatim by a single host using a text-to-speech model. The script should be plain text only, with no additional formatting or extra instructions, and should not include any introductions or host names—the words are read exactly as they appear.
 
     <GOAL>
     1. Convert the provided context into a podcast script that flows naturally in a conversational style.
     2. Ensure the script is engaging and informative for a general audience.
     3. Include all relevant information from the context, keeping the script concise and focused on the topic.
-    4. The podcast should be designed for a single host reading the script as a monologue.
+    4. The script is intended for a single host reading the words directly off the page via a text-to-speech model.
     </GOAL>
 
     <EXAMPLE>
     Example output:
-    "Welcome to our research podcast! Today, we dive into the fascinating world of artificial intelligence, exploring its latest trends and how these innovations impact our daily lives. Stay tuned as we unravel the mysteries behind AI and what the future might hold."
+    Today, we dive into the fascinating world of artificial intelligence, exploring its latest trends and the innovations shaping our future. Stay tuned as we uncover key insights from recent research.
     </EXAMPLE>
 
     <context>
@@ -37,7 +37,7 @@ prompt = PromptTemplate(
     </context>
 
     Assistant:""",
-    input_variables=["context", "question"]
+    input_variables=["context", "research_topic"]
 )
 
 def _format_docs(docs: List[Any]) -> str:
@@ -48,7 +48,7 @@ def _format_docs(docs: List[Any]) -> str:
 chain = (
     {
         "context": vector_store.milvus.as_retriever() | _format_docs,
-        "question": RunnablePassthrough()
+        "research_topic": RunnablePassthrough()
     }
     | prompt
     | llm
@@ -57,14 +57,14 @@ chain = (
 
     
 
-def query(question: str) -> str:
+def query(research_topic: str) -> str:
     """
-    Query the RAG chain with a question.
+    Query the RAG chain with a research topic.
     
     Args:
-        question: The question to answer
+        research_topic: The research topic to answer
         
     Returns:
         Generated answer based on retrieved context
     """
-    return chain.invoke(question)
+    return chain.invoke(research_topic)
