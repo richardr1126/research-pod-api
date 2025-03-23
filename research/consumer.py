@@ -126,23 +126,24 @@ def process_message(message):
         send_progress_update(pod_id, "PROCESSING", 0, "Started processing request")
         logger.info(f"Processing scrape request for pod {pod_id}: {query}")
         
-        send_progress_update(pod_id, "IN_PROGRESS", 33, "Scraping papers")
+        send_progress_update(pod_id, "IN_PROGRESS", 25, "Scraping papers")
         # Scrape papers
         papers, papers_sources, papers_keyword_groups = scrape_arxiv(query, max_papers=3)
         logger.info(f"Scraped {len(papers_sources)} results for pod {pod_id}")
         
-        send_progress_update(pod_id, "IN_PROGRESS", 66, "Adding papers to vector store")
+        send_progress_update(pod_id, "IN_PROGRESS", 50, "Adding papers to vector store")
         # Add papers to vector store
         vector_store.add_documents(papers)
         logger.info(f"Added papers to vector store for pod {pod_id}")
         
-        send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating summary")
+        send_progress_update(pod_id, "IN_PROGRESS", 75, "Generating summary")
         # Generate summary
         summary = rag_chain.query(query)
 
         # For now, use the summary as the transcript
         transcript = summary
 
+        send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating podcast audio")
         # Generate audio from summary
         with TextToSpeechClient() as tts_client:
             audio_data = tts_client.generate_speech(
@@ -163,7 +164,8 @@ def process_message(message):
             except Exception as blob_error:
                 logger.error(f"Failed to upload audio to blob storage: {str(blob_error)}")
                 raise
-
+        
+        send_progress_update(pod_id, "IN_PROGRESS", 95, "Saving results to database")
         # Update database entry with summary, sources, transcript, and audio URL
         with app.app_context():
             research_pod = db.session.get(ResearchPods, pod_id)
