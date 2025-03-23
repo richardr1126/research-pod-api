@@ -5,11 +5,18 @@ import os
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_openai import AzureChatOpenAI
 from langchain_deepseek import ChatDeepSeek
 from typing import List, Any
 from . import vector_store
 
-# Initialize components
+# Getting ready to fully to switch to Azure AI, contact me for keys (deployed like this on k8s)
+# llm = AzureChatOpenAI(
+#     openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
+#     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+#     azure_deployment='gpt-4o',
+#     api_version="2025-02-01-preview",
+# )
 llm = ChatDeepSeek(
     model='deepseek-chat',
     api_key=os.getenv("DEEPSEEK_API_KEY")

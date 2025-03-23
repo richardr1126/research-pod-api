@@ -5,6 +5,7 @@ flask-cors
 gunicorn
 uuid_v7
 # ORM dependencies
+azure-storage-blob
 redis
 kafka-python
 psycopg2-yugabytedb

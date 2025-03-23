@@ -5,7 +5,7 @@ Vector store implementation using Milvus Lite for in-memory storage.
 import os
 from typing import List, Any, Dict
 from langchain_milvus import Milvus
-from langchain_openai.embeddings import OpenAIEmbeddings
+from langchain_openai.embeddings import AzureOpenAIEmbeddings, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 text_splitter = RecursiveCharacterTextSplitter(
@@ -13,7 +13,13 @@ text_splitter = RecursiveCharacterTextSplitter(
     chunk_overlap=200
 )
 
-# Initialize the embeddings model
+# Getting ready to fully switch to Azure AI, contact me for keys
+# embeddings = AzureOpenAIEmbeddings(
+#     api_key=os.getenv("AZURE_OPENAI_KEY"),
+#     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+#     azure_deployment="text-embedding-3-large",
+#     api_version="2025-02-01-preview",
+# )
 embeddings = OpenAIEmbeddings(
     api_key=os.getenv("OPENAI_API_KEY"),
     model="text-embedding-3-large",

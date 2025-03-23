@@ -4,14 +4,16 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 
 ### Key Components
 - **Paper Processing**: Automatically scrapes arXiv papers and converts them to a format our AI can understand
-- **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat and vector search
+- **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat/Azure OpenAI and vector search
 - **Message Queue**: Uses Kafka to handle multiple papers at once without overloading
 - **Vector Search**: Uses Milvus Lite to store and find similar content
 - **Database**: YugabyteDB for distributed SQL storage with high availability
+- **Storage**: Azure Blob Storage for audio file storage
 - **Deployment Options**: Can run locally or on our Kubernetes cluster
 
 ### Technical Stack
-- **AI Models**: DeepSeek Chat for generating text, OpenAI for creating embeddings
+- **AI Models**: DeepSeek Chat/Azure OpenAI for generating text, OpenAI/Azure AI for embeddings
+- **Storage**: Azure Blob Storage for audio files
 - **Speech**: Kokoro TTS service for high-quality audio generation
 - **Architecture**: Event-driven with Kafka for reliability
 - **PDF Handling**: Uses pymupdf4llm for converting PDFs to clean text
@@ -149,7 +151,8 @@ cd research-pod-api
 cp research/template.env research/.env
 ```
 
-2. Add only the required keys to .env (ask Richard for these if needed):
+2. Add only the required keys to .env:
+> Note: Will be switch compltely to Azure OpenAI soon
 ```env
 DEEPSEEK_API_KEY=your-key
 OPENAI_API_KEY=your-key
@@ -309,6 +312,7 @@ Get pod status:
 {
   "pod_id": "uuid-string",
   "status": "QUEUED|ASSIGNED|PROCESSING|IN_PROGRESS|COMPLETED|ERROR",
+  "message": "Any message from the consumer",
   "progress": 0-100,
   "query": "original query",
   "events_url": "https://research-consumer-{id}.richardr.dev/v1/events/{pod_id}"
@@ -323,7 +327,7 @@ Get full research pod details from database:
   "query": "original query",
   "summary": "Generated summary text",
   "transcript": "TTS-optimized text",
-  "audio_url": "URL to audio file",
+  "audio_url": "https://researchpod.blob.core.windows.net/researchpod-audio/{pod_id}/audio.mp3",
   "sources_arxiv": ["paper sources"],
   "sources_ddg": ["web sources"],
   "status": "QUEUED|PROCESSING|COMPLETED|ERROR",

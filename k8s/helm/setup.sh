@@ -147,6 +147,8 @@ kubectl create secret generic api-secrets \
   --from-literal=OPENAI_API_KEY=$OPENAI_API_KEY \
   --from-literal=AZURE_OPENAI_KEY=$AZURE_OPENAI_KEY \
   --from-literal=AZURE_OPENAI_ENDPOINT=$AZURE_OPENAI_ENDPOINT \
+  --from-literal=SQLALCHEMY_DATABASE_URI=$SQLALCHEMY_DATABASE_URI \
+  --from-literal=AZURE_STORAGE_CONNECTION_STRING=$AZURE_STORAGE_CONNECTION_STRING \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Add helm repositories

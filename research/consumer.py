@@ -1,19 +1,19 @@
 """
 Kafka consumer for processing research paper requests.
 """
-from flask import Flask, Response, jsonify
-from kafka import KafkaConsumer, KafkaProducer
-import json
-import os
-from dotenv import load_dotenv
 import logging
 import time
+import socket
+import os
+import json
+from flask import Flask, Response, jsonify
+from dotenv import load_dotenv
 from threading import Thread
 from queue import Queue
-import redis
-import socket
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
+from azure.storage.blob import BlobServiceClient
+from kafka import KafkaConsumer, KafkaProducer
+import redis
 
 # Module imports
 from scraper.scrape import scrape_arxiv
@@ -36,8 +36,14 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', '')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize SQLAlchemy
+# Initialize SQLAlchemy YugabyteDB connection
 db.init_app(app)
+
+# Initialize Azure Blob Storage client
+blob_service_client = BlobServiceClient.from_connection_string(
+    os.getenv('AZURE_STORAGE_CONNECTION_STRING')
+)
+blob_storage_container = blob_service_client.get_container_client('researchpod-audio')
 
 # Queue for SSE updates
 progress_queue = Queue()
@@ -133,7 +139,7 @@ def process_message(message):
         summary = rag_chain.query(query)
         transcript = summary
 
-        # Generate audio from summary for now
+        # Generate audio from summary
         with TextToSpeechClient() as tts_client:
             audio_data = tts_client.generate_speech(
                 text=transcript,
@@ -142,10 +148,19 @@ def process_message(message):
                 format="mp3",
                 speed=1.0
             )
-            # Log audio data size instead of storing it for now
-            logger.info(f"Generated audio for pod {pod_id}, size: {len(audio_data)} bytes")
+            
+            # Upload audio to blob storage
+            try:
+                blob_name = f"{pod_id}/audio.mp3"
+                blob_client = blob_storage_container.get_blob_client(blob_name)
+                blob_client.upload_blob(audio_data, overwrite=True)
+                audio_url = blob_client.url
+                logger.info(f"Uploaded audio to blob storage: {audio_url}")
+            except Exception as blob_error:
+                logger.error(f"Failed to upload audio to blob storage: {str(blob_error)}")
+                raise
 
-        # Single database update at the end
+        # Update database entry with summary, sources, transcript, and audio URL
         with app.app_context():
             research_pod = db.session.get(ResearchPods, pod_id)
             if research_pod:
@@ -155,13 +170,15 @@ def process_message(message):
                 research_pod.status = "COMPLETED"
                 research_pod.progress = 100
                 research_pod.consumer_id = consumer_id
+                research_pod.audio_url = audio_url  # Add the audio URL to the database
                 research_pod.updated_at = datetime.now(timezone.utc)
                 db.session.commit()
                 logger.info(f"Updated database for pod {pod_id}")
 
-        # Prepare response
+        # Update the response to include the audio URL
         response = {
             "pod_id": pod_id,
+            "audio_url": audio_url,
             "query": query,
             "summary": summary,
             "transcript": transcript,
