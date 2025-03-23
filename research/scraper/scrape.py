@@ -126,13 +126,12 @@ def scrape_arxiv(query, max_papers=3):
         sources = [{
             "doi": p['doi'],
             "title": p['title'],
-            "url": f"https://arxiv.org/abs/{p['doi']}",
+            "url": f"https://arxiv.org/abs/{p['doi'].split('arXiv.')[-1]}",
             "authors": p['authors'],
-            "abstract": p['abstract'],
             "journal": p['journal']
         } for p in results]
 
-        return results, sources
+        return results, sources, keyword_groups
     except Exception as e:
         logger.error(f"Error during scraping: {str(e)}", exc_info=True)
         raise
