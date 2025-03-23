@@ -40,6 +40,15 @@ gcloud container clusters create $CLUSTER_NAME-gcp \
     --min-nodes $MIN_NODES \
     --max-nodes $MAX_NODES \
 
+# Add GPU node pool
+echo "Creating GPU node pool..."
+gcloud container node-pools create gpu-t4-pool \
+    --cluster=$CLUSTER_NAME-gcp \
+    --accelerator type=nvidia-tesla-t4,count=1 \
+    --machine-type=n1-standard-1 \
+    --num-nodes=1 \
+    --zone=$GCP_ZONE \
+
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
 gcloud container clusters get-credentials $CLUSTER_NAME-gcp \

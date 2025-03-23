@@ -12,6 +12,7 @@ DIGITAL_OCEAN=false
 AZURE=false
 GCP=false
 CLEAR=false
+GPU=false
 
 for arg in "$@"; do
   if [ "$arg" == "--build" ]; then
@@ -24,6 +25,11 @@ for arg in "$@"; do
     GCP=true
   elif [ "$arg" == "--clear" ]; then
     CLEAR=true
+  elif [ "$arg" == "--gpu" ]; then
+    GPU=true
+  else
+    echo "Unknown parameter: $arg"
+    exit 1
   fi
 done
 
@@ -151,6 +157,7 @@ helm repo add kafbat-ui https://kafbat.github.io/helm-charts
 helm repo add jetstack https://charts.jetstack.io
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo add yugabytedb https://charts.yugabyte.com
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
 helm repo update
 
 # Install cert-manager for Let's Encrypt
@@ -285,17 +292,44 @@ kubectl get secret yugabyte-tls-client-cert -n yugabyte -o yaml | \
   kubectl apply -f -
 
 # Install custom charts with appropriate settings
+echo "Installing web-api chart..."
+helm upgrade --install web-api ./web-api \
+  --set image.repository=${WEB_API_IMAGE} \
+  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
+  --wait
+
 echo "Installing research-consumer charts..."
 helm upgrade --install research-consumer ./research-consumer \
   --set image.repository=${CONSUMER_IMAGE} \
   --set image.pullPolicy=${IMAGE_PULL_POLICY} \
   --wait
 
-echo "Installing web-api chart..."
-helm upgrade --install web-api ./web-api \
-  --set image.repository=${WEB_API_IMAGE} \
-  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
-  --wait
+if [ "$GPU" = true ]; then
+  echo "Installing GPU Operator..."
+  helm upgrade -i gpu-operator nvidia/gpu-operator \
+    --version v24.9.2 \
+    --namespace gpu-operator --create-namespace \
+    -f gpu-operator-values.yaml \
+    --wait
+
+  echo "GPU operator install drivers..., this may take a while"
+  kubectl wait --for=condition=Ready pod -l app=nvidia-cuda-validator --timeout=600s -n gpu-operator  
+
+  echo "Installing Kokoro-FastAPI chart..."
+  if [ "$AZURE" = true ]; then
+    helm upgrade --install kokoro-fastapi ./kokoro-fastapi \
+      -f ./kokoro-fastapi/aks-values.yaml \
+      --wait
+  elif [ "$GCP" = true ]; then
+    helm upgrade --install kokoro-fastapi ./kokoro-fastapi \
+      -f ./kokoro-fastapi/gke-values.yaml \
+      --wait
+  else
+    echo "Not installing Kokoro on DigitalOcean."
+    exit 1
+  fi
+fi
+
 
 # Install prometheus stack
 #echo "Installing Prometheus stack..."

@@ -73,7 +73,7 @@ def get_events_url(pod_id):
         else:
             return None
     # Default to localhost for local development
-    return f"http://localhost:8888/v1/events/{pod_id}"
+    return f"http://localhost:8081/v1/events/{pod_id}"
 
 @server.route('/v1/api/pod/create', methods=['POST'])
 def scrape():
@@ -129,7 +129,7 @@ def scrape():
             "pod_id": research_pod.id,
             "status": "success", 
             "message": "Scrape request queued",
-            "events_url": get_events_url(research_pod.id)
+            "events_url": None
         }), 202
 
     except Exception as e:
@@ -152,6 +152,10 @@ def get_status(pod_id):
             "progress": int(pod_data.get("progress", 0)),
             "query": pod_data.get("query")
         }
+        
+        # Add message if it exists
+        if "message" in pod_data:
+            response["message"] = pod_data["message"]
         
         # Get consumer URL
         events_url = get_events_url(pod_id)

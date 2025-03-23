@@ -1,0 +1,48 @@
+devicePlugin:
+  config:
+    create: true
+    name: "time-slicing-config"
+    default: "any"
+    data:
+      any: |-
+        version: v1
+        flags:
+          migStrategy: none
+        sharing:
+          timeSlicing:
+            resources:
+            - name: nvidia.com/gpu
+              replicas: 4
+
+daemonsets:
+  tolerations:
+    - key: "sku"
+      operator: Equal
+      value: "gpu"
+      effect: NoSchedule
+    - key: "kubernetes.azure.com/scalesetpriority"
+      operator: Equal
+      value: "spot"
+      effect: NoSchedule
+
+node-feature-discovery:
+  master:
+    tolerations:
+      - key: "sku"
+        operator: Equal
+        value: "gpu"
+        effect: NoSchedule
+      - key: "kubernetes.azure.com/scalesetpriority"
+        operator: Equal
+        value: "spot"
+        effect: NoSchedule
+  worker:
+    tolerations:
+      - key: "sku"
+        operator: Equal
+        value: "gpu"
+        effect: NoSchedule
+      - key: "kubernetes.azure.com/scalesetpriority"
+        operator: Equal
+        value: "spot"
+        effect: NoSchedule

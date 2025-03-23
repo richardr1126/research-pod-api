@@ -120,8 +120,18 @@ def scrape_arxiv(query, max_papers=3):
             logger.info(f"Authors: {paper.get('authors', 'N/A')}")
             logger.info(f"DOI: {paper.get('doi', 'N/A')}")
             logger.info(f"Abstract: {paper.get('abstract', 'N/A')[:200]}...")
+        
+        # Extract paper metadata for sources list
+        sources = [{
+            "doi": p['doi'],
+            "title": p['title'],
+            "url": f"https://arxiv.org/abs/{p['doi']}",
+            "authors": p['authors'],
+            "abstract": p['abstract'],
+            "journal": p['journal']
+        } for p in results]
 
-        return results
+        return results, sources
     except Exception as e:
         logger.error(f"Error during scraping: {str(e)}", exc_info=True)
         raise

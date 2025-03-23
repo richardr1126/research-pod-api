@@ -3,14 +3,19 @@ flask
 python-dotenv
 flask-cors
 gunicorn
+uuid_v7
+# ORM dependencies
 redis
+kafka-python
+psycopg2-yugabytedb
+Flask-SQLAlchemy
+# For paper scraping
 paperscraper
 nltk
-openai
 pymupdf==1.25.2
 pymupdf4llm
-kafka-python
 # Added RAG dependencies
+openai
 langchain
 langchain-core
 langchain-community
@@ -20,3 +25,7 @@ langchain-deepseek
 langchain-openai
 langchain-azure-ai
 langchain-ollama
+# Websearch dependencies
+duckduckgo-search
+tavily-python
+langgraph

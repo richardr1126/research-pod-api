@@ -73,6 +73,8 @@ services:
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - REDIS_URL=redis://redis:6379
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://researchpod:research-pod-password@postgres:5432/researchpod
+      - TTS_BASE_URL=https://koko.richardr.dev/v1
     env_file:
       - ./research/.env
     ports:

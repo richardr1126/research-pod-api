@@ -1,0 +1,34 @@
+kokoroTTS:
+  replicaCount: 8
+  port: 8880
+  tag: v0.2.0
+  pullPolicy: IfNotPresent
+
+# Azure specific settings for spot t4 GPU nodes with Nvidia GPU operator
+tolerations:
+  - key: "kubernetes.azure.com/scalesetpriority"
+    operator: Equal
+    value: "spot"
+    effect: NoSchedule
+  - key: "sku"
+    operator: Equal
+    value: "gpu"
+    effect: NoSchedule
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    # Requires cert-manager and external-dns to be in the cluster for TLS and DNS
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: koko.richardr.dev
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+  hosts:
+    - host: koko.richardr.dev
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: kokoro-fastapi-tls
+      hosts:
+        - koko.richardr.dev

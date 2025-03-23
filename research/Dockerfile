@@ -1,44 +1,29 @@
-FROM python:3.12-slim AS base
+FROM python:3.12-slim
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
-
-FROM base AS builder
-
-WORKDIR /app
-
-# Install build dependencies and runtime dependencies for Milvus Lite
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libgomp1 \
+# Install system dependencies for psycopg2
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        python3-dev \
+        libpq-dev \
+        postgresql-client \
+        libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
+WORKDIR /app
 
 # Install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-FROM base AS final
-
-WORKDIR /app
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy only necessary files from builder
-COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
-COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Copy application code
 COPY . .
 
-# Create volume mount point for Milvus Lite .db in the root directory
+# Create volume mount point for Milvus Lite .db
 RUN mkdir -p /app/data
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
 
 # Expose health check port
 EXPOSE 8081
