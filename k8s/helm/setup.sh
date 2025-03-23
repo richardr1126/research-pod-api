@@ -292,15 +292,15 @@ kubectl get secret yugabyte-tls-client-cert -n yugabyte -o yaml | \
   kubectl apply -f -
 
 # Install custom charts with appropriate settings
-echo "Installing research-consumer charts..."
-helm upgrade --install research-consumer ./research-consumer \
-  --set image.repository=${CONSUMER_IMAGE} \
-  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
-  --wait
-
 echo "Installing web-api chart..."
 helm upgrade --install web-api ./web-api \
   --set image.repository=${WEB_API_IMAGE} \
+  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
+  --wait
+
+echo "Installing research-consumer charts..."
+helm upgrade --install research-consumer ./research-consumer \
+  --set image.repository=${CONSUMER_IMAGE} \
   --set image.pullPolicy=${IMAGE_PULL_POLICY} \
   --wait
 
@@ -313,9 +313,6 @@ if [ "$GPU" = true ]; then
     --wait
 
   echo "GPU operator install drivers..., this may take a while"
-  # Wait for GPU operator to be ready
-  # nvidia-cuda-validator-bbb2l                                   0/1     Completed   0          102s
-  # nvidia-cuda-validator-jq87r                                   0/1     Completed   0 
   kubectl wait --for=condition=Ready pod -l app=nvidia-cuda-validator --timeout=600s -n gpu-operator  
 
   echo "Installing Kokoro-FastAPI chart..."

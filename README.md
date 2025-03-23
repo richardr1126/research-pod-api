@@ -12,10 +12,11 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 
 ### Technical Stack
 - **AI Models**: DeepSeek Chat for generating text, OpenAI for creating embeddings
+- **Speech**: Kokoro TTS service for high-quality audio generation
 - **Architecture**: Event-driven with Kafka for reliability
 - **PDF Handling**: Uses pymupdf4llm for converting PDFs to clean text
 - **Database**: YugabyteDB (Postgres-compatible distributed SQL)
-- **Infrastructure**: Kubernetes configs for our development and future production setup
+- **Infrastructure**: Kubernetes configs with optional GPU support for TTS
 
 ## How It Works
 
@@ -108,6 +109,7 @@ sequenceDiagram
    - Runs our RAG pipeline
    - Manages the vector database
    - Stores results in YugabyteDB
+   - Generates audio summaries using TTS service
 
 3. **Message System**
    - Uses Kafka to handle multiple requests
@@ -119,6 +121,12 @@ sequenceDiagram
    - Stores research pod data, results, and metadata
    - Highly available with automatic failover
    - PostgreSQL-compatible for easy integration
+
+5. **TTS Service**
+   - GPU-accelerated text-to-speech conversion
+   - Supports multiple voices and languages
+   - Used for creating audio summaries
+   - Only available in cloud deployments with GPU support
 
 ## Getting Started
 
@@ -314,6 +322,10 @@ Get full research pod details from database:
   "id": "uuid-string",
   "query": "original query",
   "summary": "Generated summary text",
+  "transcript": "TTS-optimized text",
+  "audio_url": "URL to audio file",
+  "sources_arxiv": ["paper sources"],
+  "sources_ddg": ["web sources"],
   "status": "QUEUED|PROCESSING|COMPLETED|ERROR",
   "error_message": "Any error details",
   "progress": 0-100,
@@ -343,7 +355,8 @@ research-pod-api/
 ├── research/           # Does the AI/paper processing
 │   ├── consumer.py     # Handles Kafka messages
 │   ├── rag/           # Our RAG implementation
-│   └── scraper/       # Gets papers from arXiv
+│   ├── scraper/       # Gets papers from arXiv
+│   └── speech/        # Text-to-speech service client
 ├── web/               # The API service
 │   └── server.py      # Main Flask app
 ├── k8s/               # Kubernetes stuff

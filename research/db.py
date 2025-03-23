@@ -38,12 +38,3 @@ class ResearchPods(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
-
-    @classmethod
-    def create_from_request(cls, query: str):
-        """Create a new research pod from an initial request"""
-        return cls(
-            query=query,
-            status='QUEUED',
-            progress=0
-        )
