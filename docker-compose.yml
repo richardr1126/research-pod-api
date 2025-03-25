@@ -48,13 +48,13 @@ services:
       retries: 5
   
   postgres:
-    image: postgres:alpine
+    image: pgvector/pgvector:pg16
     environment:
       - POSTGRES_USER=researchpod
       - POSTGRES_PASSWORD=research-pod-password
       - POSTGRES_DB=researchpod
     volumes:
-      - db:/var/lib/postgresql/data
+      - pgdb:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: unless-stopped
@@ -63,6 +63,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    command: >
+      bash -c "
+        docker-entrypoint.sh postgres &
+        sleep 10
+        psql -U researchpod -d researchpod -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+        wait
+      "
 
   research-consumer:
     build: 
@@ -75,6 +82,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://researchpod:research-pod-password@postgres:5432/researchpod
       - TTS_BASE_URL=https://koko.richardr.dev/v1
+      - AZURE_OPENAI_ENDPOINT=https://openai-research-pod.openai.azure.com/
     env_file:
       - ./research/.env
     ports:
@@ -105,8 +113,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-ui:
+        condition: service_started
       postgres:
         condition: service_healthy
+      research-consumer:
+        condition: service_started
 
 volumes:
-  db:
+  pgdb:

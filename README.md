@@ -152,10 +152,11 @@ cp research/template.env research/.env
 ```
 
 2. Add only the required keys to .env:
-> Note: Will be switch compltely to Azure OpenAI soon
+> Note: use `cp research/template.env research/.env` to create a new .env file
+> Contact Richard in Slack for the env
 ```env
-DEEPSEEK_API_KEY=your-key
-OPENAI_API_KEY=your-key
+AZURE_OPENAI_KEY=azure-openai-key
+AZURE_STORAGE_CONNECTION_STRING=azure-blob-storage-connection-string
 ```
 
 3. Start everything:
@@ -177,12 +178,35 @@ curl -X POST http://localhost:8888/v1/api/pod/create \
 6. Connect to stream:
 ```bash
 curl -N http://localhost:8081/v1/events/{job_id}
-```   
+```
 
-**Important**: See [k8s/README.md](k8s/README.md) for:
-- Detailed setup instructions for Azure and Digital Ocean
-- Troubleshooting
-- Cleanup procedures
+### Running Tests
+
+Run the tests using Docker Compose:
+```bash
+docker compose run --rm web-api pytest -v
+```
+or if need to rebuild:
+```bash
+docker compose down && docker compose rm
+docker compose run --rm --build web-api pytest -v
+```
+or if already running in `docker compose up`:
+```bash
+docker compose exec web-api pytest -v
+```
+
+This will:
+1. Use docker compose to run the tests on the web API service
+2. Run all tests in verbose mode
+3. Clean up any orphaned containers
+4. Show test output with detailed progress
+
+The test suite includes:
+- Health check endpoint tests
+- API endpoint validation
+- Full pod lifecycle tests
+- Error handling tests
 
 ### Option 2: Cloud Setup (AKS/DO/GCP)
 

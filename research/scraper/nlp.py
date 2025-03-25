@@ -17,16 +17,16 @@ class KeywordCategories(BaseModel):
 def setup_client():
     """Initialize Azure OpenAI client with LangChain"""
     # Getting ready to fully switch to Azure AI, contact me for keys
-    # return AzureChatOpenAI(
-    #     openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
-    #     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    #     azure_deployment='gpt-4o-mini',
-    #     api_version="2025-02-01-preview",
-    # )
-    return ChatDeepSeek(
-        model='deepseek-chat',
-        api_key=os.getenv("DEEPSEEK_API_KEY")
+    return AzureChatOpenAI(
+        openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        azure_deployment='gpt-4o-mini',
+        api_version="2025-02-01-preview",
     )
+    # return ChatDeepSeek(
+    #     model='deepseek-chat',
+    #     api_key=os.getenv("DEEPSEEK_API_KEY")
+    # )
 
 
 def process_search_query(query: str) -> List[List[str]]:

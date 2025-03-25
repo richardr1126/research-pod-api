@@ -96,8 +96,9 @@ if [ "$BUILD_WEB" = true ] || [ "$BUILD_CONSUMER" = true ]; then
     echo "Upgrading research-consumer chart..."
     helm upgrade --install research-consumer ./research-consumer \
       --set image.repository=${CONSUMER_IMAGE} \
-      --set image.pullPolicy=${IMAGE_PULL_POLICY} \
       --wait
+
+    kubectl rollout restart statefulset research-consumer
   fi
 
   if [ "$BUILD_WEB" = true ]; then
@@ -111,8 +112,9 @@ if [ "$BUILD_WEB" = true ] || [ "$BUILD_CONSUMER" = true ]; then
     echo "Upgrading web-api chart..."
     helm upgrade --install web-api ./web-api \
       --set image.repository=${WEB_API_IMAGE} \
-      --set image.pullPolicy=${IMAGE_PULL_POLICY} \
       --wait
+
+    kubectl rollout restart deployment web-api
   fi
 
   echo "Component build and upgrade complete!"
@@ -332,7 +334,8 @@ echo "Installing YugabyteDB..."
 # helm install yb-demo yugabytedb/yugabyte --version 2.25.0 --namespace yb-demo --wait
 helm upgrade --install yugabyte yugabytedb/yugabyte --namespace yugabyte --create-namespace \
   -f yugabyte-values.yaml \
-  --wait
+  --wait \
+  --timeout 15m
 
 # Copy YugabyteDB TLS client cert secret to default namespace
 echo "Copying YugabyteDB TLS client cert secret to default namespace..."
@@ -340,17 +343,19 @@ kubectl get secret yugabyte-tls-client-cert -n yugabyte -o yaml | \
   sed 's/namespace: yugabyte/namespace: default/' | \
   kubectl apply -f -
 
+# Connect to ysql shell
+echo "Adding vector extension to YugabyteDB..."
+kubectl exec --namespace yugabyte -it yb-tserver-0 -- /bin/bash -c 'export PGPASSWORD=research-pod-password; /home/yugabyte/bin/ysqlsh -h yb-tserver-0.yb-tservers.yugabyte -U researchpod -d researchpod -c "CREATE EXTENSION IF NOT EXISTS vector;"' || true
+
 # Install custom charts with appropriate settings
 echo "Installing web-api chart..."
 helm upgrade --install web-api ./web-api \
   --set image.repository=${WEB_API_IMAGE} \
-  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
   --wait
 
 echo "Installing research-consumer charts..."
 helm upgrade --install research-consumer ./research-consumer \
   --set image.repository=${CONSUMER_IMAGE} \
-  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
   --wait
 
 if [ "$GPU" = true ]; then

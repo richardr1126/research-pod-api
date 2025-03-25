@@ -143,6 +143,9 @@ def process_message(message):
         # For now, use the summary as the transcript
         transcript = summary
 
+        # Delete the papers from the vector store
+        vector_store.clear()
+
         send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating podcast audio")
         # Generate audio from summary
         with TextToSpeechClient() as tts_client:

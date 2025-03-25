@@ -12,6 +12,8 @@ env:
   value: redis://redis-master.default.svc.cluster.local:6379
 - name: TTS_BASE_URL
   value: http://kokoro-fastapi-kokoro-tts-service.default.svc.cluster.local:8880/v1
+- name: AZURE_OPENAI_ENDPOINT
+  value: https://openai-research-pod.openai.azure.com/
 
 envFrom:
 - secretRef:
@@ -21,7 +23,7 @@ envFrom:
 image:
   repository: research-pod-research-consumer
   # This sets the pull policy for images.
-  pullPolicy: Never
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 

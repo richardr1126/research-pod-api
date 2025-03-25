@@ -29,8 +29,6 @@ az aks create \
   --name $CLUSTER_NAME-az \
   --node-count $MIN_NODES \
   --node-vm-size $AZ_NODE_SIZE \
-  --enable-addons monitoring \
-  --generate-ssh-keys \
   --enable-cluster-autoscaler \
   --min-count $MIN_NODES \
   --max-count $MAX_NODES \

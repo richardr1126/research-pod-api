@@ -1,5 +1,5 @@
 """
-RAG chain implementation using LangChain, DeepSeek Chat, and Milvus Lite.
+RAG chain implementation using LangChain, DeepSeek Chat, and PGVector on YugabyteDB.
 """
 import os
 from langchain_core.runnables import RunnablePassthrough
@@ -11,16 +11,16 @@ from typing import List, Any
 from . import vector_store
 
 # Getting ready to fully to switch to Azure AI, contact me for keys (deployed like this on k8s)
-# llm = AzureChatOpenAI(
-#     openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
-#     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-#     azure_deployment='gpt-4o',
-#     api_version="2025-02-01-preview",
-# )
-llm = ChatDeepSeek(
-    model='deepseek-chat',
-    api_key=os.getenv("DEEPSEEK_API_KEY")
+llm = AzureChatOpenAI(
+    openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    azure_deployment='gpt-4o',
+    api_version="2025-02-01-preview",
 )
+# llm = ChatDeepSeek(
+#     model='deepseek-chat',
+#     api_key=os.getenv("DEEPSEEK_API_KEY")
+# )
 
 # Define the prompt template for generating AI responses
 prompt = PromptTemplate(
@@ -50,7 +50,7 @@ def _format_docs(docs: List[Any]) -> str:
 # Build the RAG chain
 chain = (
     {
-        "context": vector_store.milvus.as_retriever() | _format_docs,
+        "context": vector_store.pgvector.as_retriever() | _format_docs,
         "question": RunnablePassthrough()
     }
     | prompt
