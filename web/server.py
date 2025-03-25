@@ -9,9 +9,8 @@ from kafka import KafkaProducer
 from kafka.errors import KafkaError
 from dotenv import load_dotenv
 import redis
-import psycopg2
-from db import db, ResearchPods
 from datetime import datetime, timezone
+from db import db, ResearchPods
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -72,8 +71,12 @@ def get_events_url(pod_id):
             return f"https://research-consumer-{consumer_id}.richardr.dev/v1/events/{pod_id}"
         else:
             return None
-    # Default to localhost for local development
-    return f"http://localhost:8081/v1/events/{pod_id}"
+    # Default to localhost:8081 for local development
+    # Check redis for consumer assignment
+    consumer_id = redis_client.hget(f"pod:{pod_id}", "consumer")
+    if consumer_id:
+        return f"http://localhost:8081/v1/events/{pod_id}"
+    return None
 
 @server.route('/v1/api/pod/create', methods=['POST'])
 def scrape():
@@ -171,17 +174,12 @@ def get_status(pod_id):
 @server.route('/v1/api/pod/get/<pod_id>', methods=['GET'])
 def get_pod(pod_id):
     """Get research pod details from database."""
-    try:
-        research_pod = db.get_or_404(ResearchPods, pod_id)
-        
-        # Convert the ResearchPod to dictionary format
-        response = research_pod.to_dict()
-        
-        return jsonify(response), 200
-        
-    except Exception as e:
-        logger.error(f"Error getting research pod: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    research_pod = db.get_or_404(ResearchPods, pod_id)
+    
+    # Convert the ResearchPod to dictionary format
+    response = research_pod.to_dict()
+    
+    return jsonify(response), 200
 
 # Health check endpoint
 @server.route('/health')

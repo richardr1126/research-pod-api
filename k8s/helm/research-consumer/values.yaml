@@ -10,10 +10,10 @@ env:
   value: kafka.default.svc.cluster.local:9092
 - name: REDIS_URL
   value: redis://redis-master.default.svc.cluster.local:6379
-- name: SQLALCHEMY_DATABASE_URI
-  value: "postgresql+psycopg2://researchpod:research-pod-password@yb-tserver-0.yb-tservers.yugabyte.svc.cluster.local,yb-tserver-1.yb-tservers.yugabyte.svc.cluster.local,yb-tserver-2.yb-tservers.yugabyte.svc.cluster.local:5433/researchpod?sslmode=verify-full&sslcert=/etc/yugabyte/certs/tls.crt&sslkey=/etc/yugabyte/certs/tls.key&sslrootcert=/etc/yugabyte/certs/ca.crt"
 - name: TTS_BASE_URL
   value: http://kokoro-fastapi-kokoro-tts-service.default.svc.cluster.local:8880/v1
+- name: AZURE_OPENAI_ENDPOINT
+  value: https://openai-research-pod.openai.azure.com/
 
 envFrom:
 - secretRef:
@@ -23,7 +23,7 @@ envFrom:
 image:
   repository: research-pod-research-consumer
   # This sets the pull policy for images.
-  pullPolicy: Never
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 

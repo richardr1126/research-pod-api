@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Research Pod API Tester</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .card { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px; }
+        #events { height: 300px; overflow-y: auto; background: #f5f5f5; padding: 1rem; }
+        .event { margin: 0.5rem 0; padding: 0.5rem; background: white; border-radius: 4px; }
+        .progress-container { margin: 1rem 0; }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s ease-in-out;
+            width: 0%;
+        }
+        .status-text { margin: 0.5rem 0; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <h1>Research Pod API Tester</h1>
+    
+    <div class="card">
+        <h3>Create Research Pod</h3>
+        <form id="createForm">
+            <input type="text" id="query" placeholder="Enter research query" style="width: 300px">
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Pod Status</h3>
+        <div id="status">
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+            <div class="status-text" id="statusText">No active pod</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Pod Details</h3>
+        <div id="podDetails">No details available</div>
+    </div>
+
+    <div class="card">
+        <h3>Event Stream</h3>
+        <div id="events"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://api.richardr.dev'; // Change this to match your API URL
+        let currentPodId = null;
+        let eventSource = null;
+
+        document.getElementById('createForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const query = document.getElementById('query').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/v1/api/pod/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const data = await response.json();
+                
+                currentPodId = data.pod_id;
+                // Initialize the status display with the new pod
+                updateStatusDisplay('INITIALIZING', 0, 'Starting research pod...');
+                
+                // Start status polling which will handle event stream connection
+                pollStatus(data.pod_id);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        };
+
+        function pollStatus(podId) {
+            let eventStreamConnected = false;
+            let intervalId = null;
+            
+            intervalId = setInterval(async () => {
+                if (!currentPodId) {
+                    clearInterval(intervalId);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE}/v1/api/pod/status/${podId}`);
+                    const data = await response.json();
+                    
+                    // Update status display
+                    updateStatusDisplay(data.status, data.progress, data.message);
+                    
+                    // Connect to event stream once we have a valid events_url
+                    if (!eventStreamConnected && data.events_url) {
+                        console.log('Found events URL:', data.events_url);
+                        connectEventStream(data.events_url);
+                        eventStreamConnected = true;
+                        // Stop polling once event stream is connected
+                        clearInterval(intervalId);
+                    }
+                } catch (error) {
+                    console.error('Error polling status:', error);
+                }
+            }, 2000);
+        }
+
+        function updateStatusDisplay(status, progress, message) {
+            document.getElementById('progressFill').style.width = `${progress || 0}%`;
+            document.getElementById('statusText').innerText = 
+                `Status: ${status}
+Pod ID: ${currentPodId}
+Progress: ${progress || 0}%
+Message: ${message || 'N/A'}`;
+        }
+
+        async function fetchPodDetails(podId) {
+            try {
+                const response = await fetch(`${API_BASE}/v1/api/pod/get/${podId}`);
+                const data = await response.json();
+                
+                // Format the pod details
+                const details = `
+                    <h4>Search Keywords:</h4>
+                    <ul>
+                        ${(data.keywords_arxiv || []).map(group => `
+                            <li>${group.join(' | ')}</li>
+                        `).join('')}
+                    </ul>
+
+                    <h4>Summary:</h4>
+                    <div class="markdown-content">
+                        ${marked.parse(data.summary || 'No summary available')}
+                    </div>
+                    
+                    <h4>Sources:</h4>
+                    <ul>
+                        ${(data.sources_arxiv || []).map(source => `
+                            <li><a href="${source.url}" target="_blank">${source.title}</a></li>
+                        `).join('')}
+                    </ul>
+                    
+                    ${data.audio_url ? `
+                        <h4>Audio:</h4>
+                        <audio controls>
+                            <source src="${data.audio_url}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    ` : ''}
+                `;
+                
+                document.getElementById('podDetails').innerHTML = details;
+            } catch (error) {
+                console.error('Error fetching pod details:', error);
+                document.getElementById('podDetails').innerText = 'Error loading pod details';
+            }
+        }
+
+        function connectEventStream(eventsUrl) {
+            if (!eventsUrl || eventsUrl === 'null') {
+                console.error('Invalid events URL');
+                return;
+            }
+
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource(eventsUrl);
+            let eventData;
+            
+            eventSource.onopen = () => {
+                console.log('EventSource connected');
+            };
+
+            eventSource.onmessage = (event) => {
+                const eventsDiv = document.getElementById('events');
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'event';
+                try {
+                    eventData = JSON.parse(event.data);
+                    // Update status display from event data
+                    updateStatusDisplay(eventData.status, eventData.progress, eventData.message);
+                    eventDiv.innerText = `${new Date().toISOString()} - ${eventData.message || event.data}`;
+
+                    // Check for completion
+                    if (eventData.status === 'COMPLETED' || eventData.status === 'ERROR') {
+                        console.log('Pod processing complete, fetching details...');
+                        eventSource.close(); // Close the stream
+                        eventSource = null;
+                        fetchPodDetails(currentPodId);
+                    }
+                } catch (e) {
+                    console.error('Error parsing event data:', e);
+                    eventDiv.innerText = `${new Date().toISOString()} - ${event.data}`;
+                }
+                eventsDiv.insertBefore(eventDiv, eventsDiv.firstChild);
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('EventSource error:', error);
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+                // Only reconnect if pod is still active and not completed
+                if (currentPodId && eventsUrl && eventData?.status !== 'COMPLETED' && eventData?.status !== 'ERROR') {
+                    setTimeout(() => connectEventStream(eventsUrl), 5000);
+                }
+            };
+        }
+    </script>
+</body>
+</html>

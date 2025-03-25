@@ -1,31 +1,38 @@
 """
-Vector store implementation using Milvus Lite for in-memory storage.
+Vector store implementation using PGVector on YugabyteDB.
 """
 
 import os
 from typing import List, Any, Dict
-from langchain_milvus import Milvus
-from langchain_openai.embeddings import OpenAIEmbeddings
+from langchain_openai.embeddings import AzureOpenAIEmbeddings, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_postgres.vectorstores import PGVector
+from langchain_openai import OpenAIEmbeddings
+from uuid_v7.base import uuid7
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=2000,
     chunk_overlap=200
 )
 
-# Initialize the embeddings model
-embeddings = OpenAIEmbeddings(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    model="text-embedding-3-large",
+# Getting ready to fully switch to Azure AI, contact me for keys
+embeddings = AzureOpenAIEmbeddings(
+    api_key=os.getenv("AZURE_OPENAI_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    azure_deployment="text-embedding-3-large",
+    api_version="2025-02-01-preview",
 )
+# embeddings = OpenAIEmbeddings(
+#     api_key=os.getenv("OPENAI_API_KEY"),
+#     model="text-embedding-3-large",
+# )
 
-# Initialize Milvus Lite with local file storage
-milvus = Milvus(
-    auto_id=True,
-    embedding_function=embeddings,
-    connection_args={"uri": "./data/milvuslite.db"},  # Local file for Milvus Lite
-    index_params={"index_type": "AUTOINDEX"},
-    drop_old=True,
+pgvector = PGVector(
+    embeddings=embeddings,
+    collection_name=f"research-{uuid7()}",
+    connection=os.getenv("SQLALCHEMY_DATABASE_URI"),
+    use_jsonb=True,
+    create_extension=False
 )
 
 def add_documents(documents: List[Dict[str, Any]], doc_type: str = "paper"):
@@ -59,34 +66,17 @@ def add_documents(documents: List[Dict[str, Any]], doc_type: str = "paper"):
         )
         
         # Add chunks to vector store
-        milvus.add_documents(chunks)
+        pgvector.add_documents(chunks)
 
 def clear():
     """
-    Deletes the DB file and its lock file.
-    Ensures proper cleanup by checking file existence and handling errors.
+    Clear all documents from the vector store.
     """
     try:
-        # Close the client connection first
-        milvus.client.close()
+        # Delete the collection
+        pgvector.delete_collection()
         
-        # Define the files to delete
-        db_file = "./data/milvuslite.db"
-        lock_file = "./data/.milvuslite.db.lock"
-        
-        # Delete DB file if it exists
-        if os.path.exists(db_file):
-            os.remove(db_file)
-            if os.path.exists(db_file):
-                raise Exception(f"Failed to delete {db_file}")
-        
-        # Delete lock file if it exists
-        if os.path.exists(lock_file):
-            os.remove(lock_file)
-            if os.path.exists(lock_file):
-                raise Exception(f"Failed to delete {lock_file}")
-        
-        print("Successfully deleted Milvus Lite DB and lock files")
+        # Recreate the collection
+        pgvector.create_collection()
     except Exception as e:
-        print(f"Error during cleanup: {str(e)}")
         raise  # Re-raise the exception to make sure caller knows about the failure

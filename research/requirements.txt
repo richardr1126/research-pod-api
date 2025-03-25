@@ -5,6 +5,7 @@ flask-cors
 gunicorn
 uuid_v7
 # ORM dependencies
+azure-storage-blob
 redis
 kafka-python
 psycopg2-yugabytedb
@@ -20,11 +21,12 @@ langchain
 langchain-core
 langchain-community
 langchain-text-splitters
-langchain-milvus
+#langchain-milvus
 langchain-deepseek
 langchain-openai
-langchain-azure-ai
+#langchain-azure-ai
 langchain-ollama
+langchain-postgres
 # Websearch dependencies
 duckduckgo-search
 tavily-python

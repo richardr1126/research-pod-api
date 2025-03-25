@@ -81,8 +81,9 @@ def scrape_arxiv(query, max_papers=3):
     """
     # Generate unique ID for this query
     query_uuid = str(uuid.uuid4())
-    pdf_dir = os.path.join("./data", 'pdfs')
-    query_dir = os.path.join(pdf_dir, query_uuid)
+    base_dir = "./data"
+    query_dir = os.path.join(base_dir, query_uuid)
+    pdf_dir = os.path.join(query_dir, 'pdfs')
     output_filepath = os.path.join(query_dir, 'results.jsonl')
 
     try:
@@ -125,13 +126,12 @@ def scrape_arxiv(query, max_papers=3):
         sources = [{
             "doi": p['doi'],
             "title": p['title'],
-            "url": f"https://arxiv.org/abs/{p['doi']}",
+            "url": f"https://arxiv.org/abs/{p['doi'].split('arXiv.')[-1]}",
             "authors": p['authors'],
-            "abstract": p['abstract'],
             "journal": p['journal']
         } for p in results]
 
-        return results, sources
+        return results, sources, keyword_groups
     except Exception as e:
         logger.error(f"Error during scraping: {str(e)}", exc_info=True)
         raise

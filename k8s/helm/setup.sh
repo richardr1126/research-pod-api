@@ -8,6 +8,8 @@ set -e
 
 # Parse command line arguments
 BUILD=false
+BUILD_WEB=false
+BUILD_CONSUMER=false
 DIGITAL_OCEAN=false
 AZURE=false
 GCP=false
@@ -17,6 +19,10 @@ GPU=false
 for arg in "$@"; do
   if [ "$arg" == "--build" ]; then
     BUILD=true
+  elif [ "$arg" == "--build-web" ]; then
+    BUILD_WEB=true
+  elif [ "$arg" == "--build-consumer" ]; then
+    BUILD_CONSUMER=true
   elif [ "$arg" == "--docean" ]; then
     DIGITAL_OCEAN=true
   elif [ "$arg" == "--azure" ]; then
@@ -32,6 +38,88 @@ for arg in "$@"; do
     exit 1
   fi
 done
+
+# Validate that exactly one environment flag is set
+ENV_FLAGS=0
+[ "$DIGITAL_OCEAN" = true ] && ((ENV_FLAGS++))
+[ "$AZURE" = true ] && ((ENV_FLAGS++))
+[ "$GCP" = true ] && ((ENV_FLAGS++))
+
+if [ $ENV_FLAGS -ne 1 ]; then
+  echo "Error: Exactly one environment flag must be specified:"
+  echo "  --docean   : Deploy to DigitalOcean"
+  echo "  --azure    : Deploy to Azure"
+  echo "  --gcp      : Deploy to Google Cloud"
+  echo "Optional flags:"
+  echo "  --build    : Build web and consumer, push, and upgrade all Helm charts"
+  echo "  --build-web: Build, push, and upgrade just web-api Helm chart"
+  echo "  --build-consumer: Build, push, and upgrade just research-consumer Helm chart"
+  echo "  --clear    : Clear existing resources before setup"
+  echo "  --gpu      : Enable GPU support and deploy Kokoro TTS service (Azure/GCP only)"
+  exit 1
+fi
+
+# Set image repository based on registry choice
+if [ "$DIGITAL_OCEAN" = true ]; then
+  REGISTRY="registry.digitalocean.com/${REGISTRY_NAME}"
+  echo "Using DigitalOcean registry: $REGISTRY"
+elif [ "$AZURE" = true ]; then
+  REGISTRY="${REGISTRY_NAME}.azurecr.io"
+  echo "Using Azure Container Registry: $REGISTRY"
+elif [ "$GCP" = true ]; then
+  REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
+  echo "Using Google Cloud Artifact Registry: $REGISTRY"
+fi
+
+CONSUMER_IMAGE="${REGISTRY}/research-consumer"
+WEB_API_IMAGE="${REGISTRY}/web-api"
+
+# Early check for individual component builds
+if [ "$BUILD_WEB" = true ] || [ "$BUILD_CONSUMER" = true ]; then
+  if [ "$DIGITAL_OCEAN" = true ]; then
+    doctl registry login
+  elif [ "$AZURE" = true ]; then
+    az acr login --name $REGISTRY_NAME
+  elif [ "$GCP" = true ]; then
+    gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev
+  fi
+
+  # Build and upgrade only the requested component(s)
+  if [ "$BUILD_CONSUMER" = true ]; then
+    echo "Building and pushing consumer image..."
+    docker buildx build \
+      --platform linux/amd64,linux/arm64 \
+      -t $CONSUMER_IMAGE:latest \
+      --push \
+      ../../research
+
+    echo "Upgrading research-consumer chart..."
+    helm upgrade --install research-consumer ./research-consumer \
+      --set image.repository=${CONSUMER_IMAGE} \
+      --wait
+
+    kubectl rollout restart statefulset research-consumer
+  fi
+
+  if [ "$BUILD_WEB" = true ]; then
+    echo "Building and pushing web API image..."
+    docker buildx build \
+      --platform linux/amd64,linux/arm64 \
+      -t $WEB_API_IMAGE:latest \
+      --push \
+      ../../web
+
+    echo "Upgrading web-api chart..."
+    helm upgrade --install web-api ./web-api \
+      --set image.repository=${WEB_API_IMAGE} \
+      --wait
+
+    kubectl rollout restart deployment web-api
+  fi
+
+  echo "Component build and upgrade complete!"
+  exit 0
+fi
 
 # Clear existing resources if --clear flag is set
 if [ "$CLEAR" = true ]; then
@@ -62,40 +150,6 @@ if [ "$CLEAR" = true ]; then
   sleep 10
 fi
 
-kubectl delete pod kafka-client --ignore-not-found
-
-# Validate that exactly one environment flag is set
-ENV_FLAGS=0
-[ "$DIGITAL_OCEAN" = true ] && ((ENV_FLAGS++))
-[ "$AZURE" = true ] && ((ENV_FLAGS++))
-[ "$GCP" = true ] && ((ENV_FLAGS++))
-
-if [ $ENV_FLAGS -ne 1 ]; then
-  echo "Error: Exactly one environment flag must be specified:"
-  echo "  --docean   : Deploy to DigitalOcean"
-  echo "  --azure    : Deploy to Azure"
-  echo "  --gcp      : Deploy to Google Cloud"
-  echo "Optional flags:"
-  echo "  --build    : Build and push Docker images"
-  echo "  --clear    : Clear existing resources before setup"
-  exit 1
-fi
-
-# Set image repository based on registry choice
-if [ "$DIGITAL_OCEAN" = true ]; then
-  REGISTRY="registry.digitalocean.com/${REGISTRY_NAME}"
-  echo "Using DigitalOcean registry: $REGISTRY"
-elif [ "$AZURE" = true ]; then
-  REGISTRY="${REGISTRY_NAME}.azurecr.io"
-  echo "Using Azure Container Registry: $REGISTRY"
-elif [ "$GCP" = true ]; then
-  REGISTRY="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
-  echo "Using Google Cloud Artifact Registry: $REGISTRY"
-fi
-
-CONSUMER_IMAGE="${REGISTRY}/research-consumer"
-WEB_API_IMAGE="${REGISTRY}/web-api"
-
 # Check if research/.env exists
 if [ ! -f "../../research/.env" ]; then
   echo "Error: research/.env file not found"
@@ -109,21 +163,16 @@ source "../../research/.env"
 if [ "$BUILD" = true ]; then
   if [ "$DIGITAL_OCEAN" = true ]; then
     echo "Building and pushing Docker images to DigitalOcean registry..."
-    # Ensure we're logged into DO registry
     doctl registry login
-
   elif [ "$AZURE" = true ]; then
     echo "Building and pushing Docker images to Azure Container Registry..."
-    # Ensure we're logged into ACR
     az acr login --name $REGISTRY_NAME
-
   elif [ "$GCP" = true ]; then
     echo "Building and pushing Docker images to Google Artifact Registry..."
-    # Configure Docker for GCP Artifact Registry
     gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev
   fi
 
-  # Build and push consumer image
+  # Build and push both images
   echo "Building and pushing consumer image..."
   docker buildx build \
     --platform linux/amd64,linux/arm64 \
@@ -131,7 +180,6 @@ if [ "$BUILD" = true ]; then
     --push \
     ../../research
   
-  # Build and push web API image
   echo "Building and pushing web API image..."
   docker buildx build \
     --platform linux/amd64,linux/arm64 \
@@ -147,6 +195,8 @@ kubectl create secret generic api-secrets \
   --from-literal=OPENAI_API_KEY=$OPENAI_API_KEY \
   --from-literal=AZURE_OPENAI_KEY=$AZURE_OPENAI_KEY \
   --from-literal=AZURE_OPENAI_ENDPOINT=$AZURE_OPENAI_ENDPOINT \
+  --from-literal=SQLALCHEMY_DATABASE_URI=$SQLALCHEMY_DATABASE_URI \
+  --from-literal=AZURE_STORAGE_CONNECTION_STRING=$AZURE_STORAGE_CONNECTION_STRING \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Add helm repositories
@@ -233,6 +283,7 @@ ssl.truststore.type=PEM
 ssl.truststore.location=/tmp/kafka-ca.crt
 EOF
 
+kubectl delete pod kafka-client --ignore-not-found
 # Create Kafka client pod for topic management
 echo "Creating Kafka client pod..."
 kubectl run kafka-client --restart='Never' --image docker.io/bitnami/kafka:3.9.0-debian-12-r12 --namespace default --command -- sleep infinity
@@ -283,7 +334,8 @@ echo "Installing YugabyteDB..."
 # helm install yb-demo yugabytedb/yugabyte --version 2.25.0 --namespace yb-demo --wait
 helm upgrade --install yugabyte yugabytedb/yugabyte --namespace yugabyte --create-namespace \
   -f yugabyte-values.yaml \
-  --wait
+  --wait \
+  --timeout 15m
 
 # Copy YugabyteDB TLS client cert secret to default namespace
 echo "Copying YugabyteDB TLS client cert secret to default namespace..."
@@ -291,17 +343,19 @@ kubectl get secret yugabyte-tls-client-cert -n yugabyte -o yaml | \
   sed 's/namespace: yugabyte/namespace: default/' | \
   kubectl apply -f -
 
+# Connect to ysql shell
+echo "Adding vector extension to YugabyteDB..."
+kubectl exec --namespace yugabyte -it yb-tserver-0 -- /bin/bash -c 'export PGPASSWORD=research-pod-password; /home/yugabyte/bin/ysqlsh -h yb-tserver-0.yb-tservers.yugabyte -U researchpod -d researchpod -c "CREATE EXTENSION IF NOT EXISTS vector;"' || true
+
 # Install custom charts with appropriate settings
 echo "Installing web-api chart..."
 helm upgrade --install web-api ./web-api \
   --set image.repository=${WEB_API_IMAGE} \
-  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
   --wait
 
 echo "Installing research-consumer charts..."
 helm upgrade --install research-consumer ./research-consumer \
   --set image.repository=${CONSUMER_IMAGE} \
-  --set image.pullPolicy=${IMAGE_PULL_POLICY} \
   --wait
 
 if [ "$GPU" = true ]; then
