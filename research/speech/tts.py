@@ -20,11 +20,11 @@ class TextToSpeechClient:
         Args:
             api_key: OpenAI API key. If not provided, will use OPENAI_API_KEY environment variable.
         """
-        self.api_key = api_key or os.getenv('OPENAI_API_KEY', 'not-needed')
+        self.api_key = 'not_needed'
         self.base_url = os.getenv('TTS_BASE_URL')
         
-        if not self.api_key:
-            raise ValueError("OpenAI API key must be provided either through constructor or OPENAI_API_KEY environment variable")
+        if not self.base_url:
+            raise ValueError("TTS_BASE_URL environment variable must be provided")
         
         self.client = openai.OpenAI(
             api_key=self.api_key,

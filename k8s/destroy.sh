@@ -17,8 +17,6 @@ destroy_kubectl() {
     helm uninstall -n cert-manager cert-manager external-dns
     helm uninstall kafka kafka-ui research-consumer web-api ingress-nginx redis --ignore-not-found
     helm delete yugabyte -n yugabyte
-    kubectl delete pvc --namespace yugabyte -l app=yb-master --force
-    kubectl delete pvc --namespace yugabyte -l app=yb-tserver --force
     kubectl delete pvc --all --force
     kubectl delete namespaces yugabyte cert-manager
 

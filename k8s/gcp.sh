@@ -32,6 +32,9 @@ gcloud container clusters create $CLUSTER_NAME-gcp \
     --project $GCP_PROJECT_ID \
     --zone $GCP_ZONE \
     --machine-type $GCP_MACHINE_TYPE \
+    --spot \
+    --disk-type $GCP_DISK_TYPE \
+    --disk-size $GCP_DISK_SIZE \
     --num-nodes $MIN_NODES \
     --enable-autorepair \
     --enable-autoupgrade \
@@ -39,15 +42,21 @@ gcloud container clusters create $CLUSTER_NAME-gcp \
     --enable-autoscaling \
     --min-nodes $MIN_NODES \
     --max-nodes $MAX_NODES \
+    --no-enable-managed-prometheus
 
 # Add GPU node pool
 echo "Creating GPU node pool..."
-gcloud container node-pools create gpu-t4-pool \
-    --cluster=$CLUSTER_NAME-gcp \
-    --accelerator type=nvidia-tesla-t4,count=1 \
-    --machine-type=n1-standard-1 \
-    --num-nodes=1 \
+gcloud container node-pools create $GCP_GPU_POOL_NAME \
     --zone=$GCP_ZONE \
+    --cluster=$CLUSTER_NAME-gcp \
+    --accelerator type=$GCP_GPU_TYPE,count=$GCP_GPU_COUNT,gpu-driver-version=disabled \
+    --node-labels="gke-no-default-nvidia-gpu-device-plugin=true" \
+    --machine-type=$GCP_GPU_MACHINE_TYPE \
+    --spot \
+    --disk-type $GCP_GPU_DISK_TYPE \
+    --disk-size $GCP_GPU_DISK_SIZE \
+    --num-nodes $GCP_GPU_NODE_COUNT \
+    --enable-best-effort-provision
 
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
@@ -96,7 +105,7 @@ docker buildx build \
 echo "Running main setup script..."
 cd helm
 if [ "$RUN_INSTALL" = true ]; then
-    ./setup.sh --gcp
+    ./setup.sh --gcp --gpu
 else
     echo "Skipping helm setup (--no-install flag was used)"
 fi
