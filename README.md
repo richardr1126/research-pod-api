@@ -144,16 +144,15 @@ Endpoints are currently deployed to:
 
 ### Option 1: Local Setup (Easiest)
 
-1. Get the code and set up env:
+1. Clone the repo:
 ```bash
 git clone https://github.com/richardr1126/research-pod-api.git
 cd research-pod-api
 cp research/template.env research/.env
 ```
 
-2. Add only the required keys to .env:
-> Note: use `cp research/template.env research/.env` to create a new .env file
-> Contact Richard in Slack for the env
+2. Create a `.env` file in the `research` directory with your Azure OpenAI and Blob Storage keys:
+> Note: Contact Richard for the env file.
 ```env
 AZURE_OPENAI_KEY=azure-openai-key
 AZURE_STORAGE_CONNECTION_STRING=azure-blob-storage-connection-string
@@ -172,7 +171,7 @@ docker compose up --build
 ```bash
 curl -X POST http://localhost:8888/v1/api/pod/create \
   -H "Content-Type: application/json" \
-  -d '{"query": "latest developments in quantum computing"}'
+  -d '{"query": "quantum computing"}'
 ```
 
 6. Connect to stream:
@@ -195,12 +194,6 @@ or if already running in `docker compose up`:
 ```bash
 docker compose exec web-api pytest -v
 ```
-
-This will:
-1. Use docker compose to run the tests on the web API service
-2. Run all tests in verbose mode
-3. Clean up any orphaned containers
-4. Show test output with detailed progress
 
 The test suite includes:
 - Health check endpoint tests

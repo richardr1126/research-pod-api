@@ -7,10 +7,22 @@ resources:
     memory: 256Mi
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: "kafkaui.richardr.dev"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: kafkaui.richardr.dev
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+  path: "/"
+  pathType: "Prefix"
+  host: "kafkaui.richardr.dev"
+  tls:
+    enabled: true
+    secretName: kafka-ui-tls
 
 volumes:
   - name: kafka-tls

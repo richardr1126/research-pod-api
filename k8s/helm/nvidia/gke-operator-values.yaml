@@ -1,0 +1,90 @@
+# helm install --wait --generate-name \
+#   -n gpu-operator \
+#   nvidia/gpu-operator \
+#   --set hostPaths.driverInstallDir=/home/kubernetes/bin/nvidia \
+#   --set toolkit.installDir=/home/kubernetes/bin/nvidia \
+#   --set cdi.enabled=true \
+#   --set cdi.default=true \
+#   --set driver.enabled=false
+
+driver:
+  enabled: false
+
+hostPaths:
+  driverInstallDir: /home/kubernetes/bin/nvidia
+  toolkitInstallDir: /home/kubernetes/bin/nvidia
+
+toolkit:
+  installDir: /home/kubernetes/bin/nvidia
+
+cdi:
+  enabled: true
+  default: true
+
+devicePlugin:
+  config:
+    create: true
+    name: "time-slicing-config"
+    default: "any"
+    data:
+      any: |-
+        version: v1
+        flags:
+          migStrategy: none
+        sharing:
+          timeSlicing:
+            resources:
+            - name: nvidia.com/gpu
+              replicas: 4
+
+# operator:
+#   priorityClassName: ""
+#   # tolerations:
+#   #   - key: cloud.google.com/gke-spot
+#   #     operator: Equal
+#   #     value: "true"
+#   #     effect: NoSchedule
+#   annotations: {}
+#   affinity:
+#     nodeAffinity:
+#       # requiredDuringSchedulingIgnoredDuringExecution:
+#       #   nodeSelectorTerms:
+#       #     - matchExpressions:
+#       #       - key: cloud.google.com/gke-spot
+#       #         operator: In
+#       #         values:
+#       #         - "true"
+#       preferredDuringSchedulingIgnoredDuringExecution: []
+
+# daemonsets:
+#   #priorityClassName: ""
+#   tolerations:
+#     - key: cloud.google.com/gke-spot
+#       operator: Equal
+#       value: "true"
+#       effect: NoSchedule
+#     - key: "nvidia.com/gpu"
+#       operator: Exists
+#       effect: NoSchedule
+
+# node-feature-discovery:
+#   #priorityClassName: ""
+#   master:
+#     tolerations:
+#       - key: cloud.google.com/gke-spot
+#         operator: Equal
+#         value: "true"
+#         effect: NoSchedule
+#       # - key: "nvidia.com/gpu"
+#       #   operator: Exists
+#       #   effect: NoSchedule
+#   worker:
+#     tolerations:
+#       - key: cloud.google.com/gke-spot
+#         operator: Equal
+#         value: "true"
+#         effect: NoSchedule
+      # - key: "nvidia.com/gpu"
+      #   operator: Exists
+      #   effect: NoSchedule
+        

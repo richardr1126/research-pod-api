@@ -38,16 +38,16 @@ echo "Creating GPU spot node pool..."
 az aks nodepool add \
   --resource-group $AZ_RESOURCE_GROUP \
   --cluster-name $CLUSTER_NAME-az \
-  --name t4gpus \
-  --node-vm-size Standard_NC4as_T4_v3 \
-  --node-count 2 \
+  --name $AZ_GPU_POOL_NAME \
+  --node-vm-size $AZ_GPU_VM_SIZE \
+  --node-count $AZ_GPU_NODE_COUNT \
   --enable-cluster-autoscaler \
-  --min-count 2 \
-  --max-count 2 \
+  --min-count $AZ_GPU_MIN_COUNT \
+  --max-count $AZ_GPU_MAX_COUNT \
   --priority Spot \
   --eviction-policy Delete \
   --spot-max-price -1 \
-  --node-taints "sku=gpu:NoSchedule,kubernetes.azure.com/scalesetpriority=spot:NoSchedule" \
+  --node-taints "$AZ_GPU_TAINTS" \
   --skip-gpu-driver-install
 
 # Get credentials for kubectl

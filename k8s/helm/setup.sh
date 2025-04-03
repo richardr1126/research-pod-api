@@ -251,7 +251,7 @@ if [ "$AZURE" = true ]; then
   # Azure has weird issues with the default NGINX Ingress Controller
   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
   -f ./ingress/nginx-values.yaml \
-  -f ./ingress/azure-nginx-values.yaml \
+  -f ./ingress/aks-nginx-values.yaml \
   --wait
 else
   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
@@ -262,6 +262,7 @@ fi
 # Install Kafka bitnami chart
 echo "Installing Kafka..."
 helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
+  --version 31.4.1 \
   -f kafka-values.yaml \
   --wait
 
@@ -360,14 +361,30 @@ helm upgrade --install research-consumer ./research-consumer \
 
 if [ "$GPU" = true ]; then
   echo "Installing GPU Operator..."
-  helm upgrade -i gpu-operator nvidia/gpu-operator \
-    --version v24.9.2 \
-    --namespace gpu-operator --create-namespace \
-    -f gpu-operator-values.yaml \
-    --wait
+  if [ "$AZURE" = true ]; then
+    # Azure GPU operator
+    helm upgrade -i gpu-operator nvidia/gpu-operator \
+      --version v24.9.2 \
+      --namespace gpu-operator --create-namespace \
+      -f ./nvidia/aks-operator-values.yaml \
+      --wait
+  elif [ "$GCP" = true ]; then
+    # GCP GPU operator
+    kubectl create ns gpu-operator
 
-  echo "GPU operator install drivers..., this may take a while"
-  kubectl wait --for=condition=Ready pod -l app=nvidia-cuda-validator --timeout=600s -n gpu-operator  
+    kubectl apply -n gpu-operator -f ./nvidia/resource-quotas.yaml
+
+    kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/cos/daemonset-preloaded.yaml
+
+    helm upgrade -i gpu-operator nvidia/gpu-operator \
+      --version v24.9.2 \
+      --namespace gpu-operator --create-namespace \
+      -f ./nvidia/gke-operator-values.yaml \
+      --wait
+  else
+    echo "Not installing GPU operator on DigitalOcean."
+    exit 1
+  fi
 
   echo "Installing Kokoro-FastAPI chart..."
   if [ "$AZURE" = true ]; then
