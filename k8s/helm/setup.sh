@@ -208,6 +208,7 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo add yugabytedb https://charts.yugabyte.com
 helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+
 helm repo update
 
 # Install cert-manager for Let's Encrypt
@@ -402,9 +403,16 @@ if [ "$GPU" = true ]; then
 fi
 
 
-# Install prometheus stack
-#echo "Installing Prometheus stack..."
-#helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack --wait
+# Install kube-prometheus-stack
+echo "Installing kube-prometheus-stack..."
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  -f ./prometheus-grafana-stack.yaml \
+  --namespace monitoring \
+  --create-namespace \
+  --wait
+
+echo "Grafana admin password:"
+kubectl --namespace monitoring get secrets prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo
 
 echo "Setup complete!"
 

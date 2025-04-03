@@ -16,6 +16,9 @@ tserver:
   readinessProbe:
     enabled: true
 
+serviceMonitor:
+  enabled: true
+
 storage:
   master:
     count: 1
