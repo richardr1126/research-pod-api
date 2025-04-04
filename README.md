@@ -6,9 +6,10 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 - **Paper Processing**: Automatically scrapes arXiv papers and converts them to a format our AI can understand
 - **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat/Azure OpenAI and vector search
 - **Message Queue**: Uses Kafka to handle multiple papers at once without overloading
-- **Vector Search**: Uses Milvus Lite to store and find similar content
+- **Vector Search**: Uses pgvector to store transcripts and find similar research pods
 - **Database**: YugabyteDB for distributed SQL storage with high availability
 - **Storage**: Azure Blob Storage for audio file storage
+- **Smart Recommendations**: Automatically suggests similar research pods based on transcript content
 - **Deployment Options**: Can run locally or on our Kubernetes cluster
 
 ### Technical Stack
@@ -21,6 +22,8 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 - **Infrastructure**: Kubernetes configs with optional GPU support for TTS
 
 ## How It Works
+
+The system processes research queries by scraping relevant papers from arXiv, analyzing them using RAG (Retrieval-Augmented Generation), and generating audio summaries. It also maintains a vector database of all generated transcripts, enabling it to recommend similar research pods based on content similarity.
 
 ## System Architecture
 
@@ -105,11 +108,13 @@ sequenceDiagram
    - Manages async jobs (since paper processing takes time)
    - Validates input to prevent garbage requests
    - Stores research data in YugabyteDB
+   - Returns hydrated recommendations with audio playback
 
 2. **Research Consumer**
    - Does the heavy lifting of paper processing
    - Runs our RAG pipeline
-   - Manages the vector database
+   - Maintains vector embeddings of transcripts
+   - Finds similar research pods using MMR search
    - Stores results in YugabyteDB
    - Generates audio summaries using TTS service
 
@@ -342,7 +347,6 @@ Get full research pod details from database:
 {
   "id": "uuid-string",
   "query": "original query",
-  "summary": "Generated summary text",
   "transcript": "TTS-optimized text",
   "audio_url": "https://researchpod.blob.core.windows.net/researchpod-audio/{pod_id}/audio.mp3",
   "sources_arxiv": ["paper sources"],
@@ -352,9 +356,19 @@ Get full research pod details from database:
   "progress": 0-100,
   "consumer_id": "consumer identifier",
   "created_at": "ISO timestamp",
-  "updated_at": "ISO timestamp"
+  "updated_at": "ISO timestamp",
+  "similar_pods": [
+    {
+      "id": "uuid-string",
+      "query": "similar query",
+      "audio_url": "audio url for similar pod",
+      "created_at": "ISO timestamp"
+    }
+  ]
 }
 ```
+
+The `similar_pods` array contains up to 5 related research pods, determined by semantic similarity between transcripts using pgvector's Maximum Marginal Relevance (MMR) search. This helps reduce redundancy in recommendations while maintaining diversity.
 
 ### GET /health
 Checks if everything's running ok.
