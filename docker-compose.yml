@@ -54,7 +54,7 @@ services:
       - POSTGRES_PASSWORD=research-pod-password
       - POSTGRES_DB=researchpod
     volumes:
-      - pgdb:/var/lib/postgresql/data
+      - dbv2:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: unless-stopped
@@ -121,4 +121,4 @@ services:
         condition: service_started
 
 volumes:
-  pgdb:
+  dbv2:

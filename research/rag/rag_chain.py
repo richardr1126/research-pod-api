@@ -50,7 +50,7 @@ def _format_docs(docs: List[Any]) -> str:
 # Build the RAG chain
 chain = (
     {
-        "context": vector_store.pgvector.as_retriever() | _format_docs,
+        "context": vector_store.pgvector.as_retriever(search_type="mmr") | _format_docs,
         "question": RunnablePassthrough()
     }
     | prompt
