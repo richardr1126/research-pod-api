@@ -66,6 +66,12 @@ rbac:
   create: true
 
 # Enable metrics
-# metrics:
-#   jmx:
-#     enabled: true
+metrics:
+  jmx:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    scheme: "https"  # Add this
+    tlsConfig:       # Add this section
+      insecureSkipVerify: true

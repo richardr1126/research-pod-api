@@ -75,6 +75,8 @@ Each script will:
   - NGINX Ingress Controller
   - Research Consumer service
   - Web API service
+  - NVIDIA GPU Operator (if --gpu flag used)
+  - Kokoro TTS service (if --gpu flag used)
 
 You can add the `--no-install` flag to skip the Helm chart installation step:
 ```bash
@@ -87,13 +89,24 @@ If you need to manually run the Helm setup:
 
 ```bash
 cd helm
-./setup.sh [--azure|--docean|--gcp] [--build] [--clear]
+./setup.sh [--azure|--docean|--gcp] [--build|--build-web|--build-consumer] [--clear] [--gpu]
 ```
 
 Flags:
 - `--azure`, `--docean`, or `--gcp`: Choose your cloud provider (required)
-- `--build`: Build and push Docker images
+- `--build`: Build and push all Docker images and perform full setup with all Helm charts
+- `--build-web`: Only build and upgrade the web-api component
+- `--build-consumer`: Only build and upgrade the research-consumer component
 - `--clear`: Clear existing resources before setup
+- `--gpu`: Enable GPU support and deploy Kokoro TTS service (Azure/GCP only)
+
+Note: Using `--build-web` or `--build-consumer` will only build and upgrade that specific component without running the full setup. These flags are useful for quick updates to individual services. You can combine them to update both services without running the full setup:
+```bash
+./setup.sh --azure --build-web --build-consumer  # Updates both components
+./setup.sh --azure --build-web                   # Updates only web-api
+./setup.sh --azure --build-consumer              # Updates only research-consumer
+./setup.sh --azure --build                       # Full setup with all components/charts
+```
 
 The setup script performs the following steps:
 
@@ -175,6 +188,18 @@ The setup includes two main cert-manager resources:
 - YSQL authentication with custom user/password
 - Client certificate authentication for secure connections
 - Resource requests and limits configured for production use
+
+### TTS Setup
+
+When using the `--gpu` flag with Azure or GCP deployments:
+
+1. **NVIDIA GPU Operator**: 
+   - Automatically installs GPU drivers on nodes
+   - Configures time-slicing for GPU sharing
+   - Enables 4 replicas per GPU for better utilization
+
+2. **Kokoro TTS Service**:
+   - Accessible at `https://koko.richardr.dev`
 
 ### Connect to YugabyteDB
 

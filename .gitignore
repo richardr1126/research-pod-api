@@ -75,3 +75,16 @@ htmlcov/
 .coverage.*
 coverage.xml
 *.cover
+.pytest*
+
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+*.log

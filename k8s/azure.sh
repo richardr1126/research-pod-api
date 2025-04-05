@@ -29,11 +29,26 @@ az aks create \
   --name $CLUSTER_NAME-az \
   --node-count $MIN_NODES \
   --node-vm-size $AZ_NODE_SIZE \
-  --enable-addons monitoring \
-  --generate-ssh-keys \
   --enable-cluster-autoscaler \
   --min-count $MIN_NODES \
   --max-count $MAX_NODES \
+
+# Add GPU spot node pool
+echo "Creating GPU spot node pool..."
+az aks nodepool add \
+  --resource-group $AZ_RESOURCE_GROUP \
+  --cluster-name $CLUSTER_NAME-az \
+  --name $AZ_GPU_POOL_NAME \
+  --node-vm-size $AZ_GPU_VM_SIZE \
+  --node-count $AZ_GPU_NODE_COUNT \
+  --enable-cluster-autoscaler \
+  --min-count $AZ_GPU_MIN_COUNT \
+  --max-count $AZ_GPU_MAX_COUNT \
+  --priority Spot \
+  --eviction-policy Delete \
+  --spot-max-price -1 \
+  --node-taints "$AZ_GPU_TAINTS" \
+  --skip-gpu-driver-install
 
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
@@ -76,7 +91,7 @@ docker buildx build \
 echo "Running main setup script..."
 cd helm
 if [ "$RUN_INSTALL" = true ]; then
-	./setup.sh --azure
+	./setup.sh --azure --gpu
 else
 	echo "Skipping helm setup (--no-install flag was used)"
 fi

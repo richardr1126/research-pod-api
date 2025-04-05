@@ -4,18 +4,21 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 
 ### Key Components
 - **Paper Processing**: Automatically scrapes arXiv papers and converts them to a format our AI can understand
-- **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat and vector search
+- **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat/Azure OpenAI and vector search
 - **Message Queue**: Uses Kafka to handle multiple papers at once without overloading
 - **Vector Search**: Uses Milvus Lite to store and find similar content
 - **Database**: YugabyteDB for distributed SQL storage with high availability
+- **Storage**: Azure Blob Storage for audio file storage
 - **Deployment Options**: Can run locally or on our Kubernetes cluster
 
 ### Technical Stack
-- **AI Models**: DeepSeek Chat for generating text, OpenAI for creating embeddings
+- **AI Models**: DeepSeek Chat/Azure OpenAI for generating text, OpenAI/Azure AI for embeddings
+- **Storage**: Azure Blob Storage for audio files
+- **Speech**: Kokoro TTS service for high-quality audio generation
 - **Architecture**: Event-driven with Kafka for reliability
 - **PDF Handling**: Uses pymupdf4llm for converting PDFs to clean text
 - **Database**: YugabyteDB (Postgres-compatible distributed SQL)
-- **Infrastructure**: Kubernetes configs for our development and future production setup
+- **Infrastructure**: Kubernetes configs with optional GPU support for TTS
 
 ## How It Works
 
@@ -108,6 +111,7 @@ sequenceDiagram
    - Runs our RAG pipeline
    - Manages the vector database
    - Stores results in YugabyteDB
+   - Generates audio summaries using TTS service
 
 3. **Message System**
    - Uses Kafka to handle multiple requests
@@ -119,6 +123,12 @@ sequenceDiagram
    - Stores research pod data, results, and metadata
    - Highly available with automatic failover
    - PostgreSQL-compatible for easy integration
+
+5. **TTS Service**
+   - GPU-accelerated text-to-speech conversion
+   - Supports multiple voices and languages
+   - Used for creating audio summaries
+   - Only available in cloud deployments with GPU support
 
 ## Getting Started
 
@@ -134,17 +144,18 @@ Endpoints are currently deployed to:
 
 ### Option 1: Local Setup (Easiest)
 
-1. Get the code and set up env:
+1. Clone the repo:
 ```bash
 git clone https://github.com/richardr1126/research-pod-api.git
 cd research-pod-api
 cp research/template.env research/.env
 ```
 
-2. Add only the required keys to .env (ask Richard for these if needed):
+2. Create a `.env` file in the `research` directory with your Azure OpenAI and Blob Storage keys:
+> Note: Contact Richard for the env file.
 ```env
-DEEPSEEK_API_KEY=your-key
-OPENAI_API_KEY=your-key
+AZURE_OPENAI_KEY=azure-openai-key
+AZURE_STORAGE_CONNECTION_STRING=azure-blob-storage-connection-string
 ```
 
 3. Start everything:
@@ -160,18 +171,35 @@ docker compose up --build
 ```bash
 curl -X POST http://localhost:8888/v1/api/pod/create \
   -H "Content-Type: application/json" \
-  -d '{"query": "latest developments in quantum computing"}'
+  -d '{"query": "quantum computing"}'
 ```
 
 6. Connect to stream:
 ```bash
 curl -N http://localhost:8081/v1/events/{job_id}
-```   
+```
 
-**Important**: See [k8s/README.md](k8s/README.md) for:
-- Detailed setup instructions for Azure and Digital Ocean
-- Troubleshooting
-- Cleanup procedures
+### Running Tests
+
+Run the tests using Docker Compose:
+```bash
+docker compose run --rm web-api pytest -v
+```
+or if need to rebuild:
+```bash
+docker compose down && docker compose rm
+docker compose run --rm --build web-api pytest -v
+```
+or if already running in `docker compose up`:
+```bash
+docker compose exec web-api pytest -v
+```
+
+The test suite includes:
+- Health check endpoint tests
+- API endpoint validation
+- Full pod lifecycle tests
+- Error handling tests
 
 ### Option 2: Cloud Setup (AKS/DO/GCP)
 
@@ -301,6 +329,7 @@ Get pod status:
 {
   "pod_id": "uuid-string",
   "status": "QUEUED|ASSIGNED|PROCESSING|IN_PROGRESS|COMPLETED|ERROR",
+  "message": "Any message from the consumer",
   "progress": 0-100,
   "query": "original query",
   "events_url": "https://research-consumer-{id}.richardr.dev/v1/events/{pod_id}"
@@ -314,6 +343,10 @@ Get full research pod details from database:
   "id": "uuid-string",
   "query": "original query",
   "summary": "Generated summary text",
+  "transcript": "TTS-optimized text",
+  "audio_url": "https://researchpod.blob.core.windows.net/researchpod-audio/{pod_id}/audio.mp3",
+  "sources_arxiv": ["paper sources"],
+  "sources_ddg": ["web sources"],
   "status": "QUEUED|PROCESSING|COMPLETED|ERROR",
   "error_message": "Any error details",
   "progress": 0-100,
@@ -343,7 +376,8 @@ research-pod-api/
 ├── research/           # Does the AI/paper processing
 │   ├── consumer.py     # Handles Kafka messages
 │   ├── rag/           # Our RAG implementation
-│   └── scraper/       # Gets papers from arXiv
+│   ├── scraper/       # Gets papers from arXiv
+│   └── speech/        # Text-to-speech service client
 ├── web/               # The API service
 │   └── server.py      # Main Flask app
 ├── k8s/               # Kubernetes stuff

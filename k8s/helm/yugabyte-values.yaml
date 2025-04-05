@@ -16,13 +16,16 @@ tserver:
   readinessProbe:
     enabled: true
 
+serviceMonitor:
+  enabled: true
+
 storage:
   master:
     count: 1
-    size: 20Gi
+    size: 10Gi
   tserver:
     count: 1
-    size: 20Gi
+    size: 10Gi
 
 resource:
   master:

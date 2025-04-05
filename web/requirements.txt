@@ -7,3 +7,7 @@ redis
 psycopg2-yugabytedb
 Flask-SQLAlchemy
 uuid_v7
+# Testing
+pytest-flask
+sseclient-py
+requests

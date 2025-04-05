@@ -11,12 +11,12 @@ spec:
       name: letsencrypt-prod-key
     solvers:
     # Default solver using HTTP-01 challenge for internal services
-    - http01:
-        ingress:
-          class: nginx
-      selector:
-        dnsZones:
-        - "cluster.local"
+    # - http01:
+    #     ingress:
+    #       class: nginx
+    #   selector:
+    #     dnsZones:
+    #     - "cluster.local"
     # DNS-01 solver for public domains
     - dns01:
         cloudflare:
