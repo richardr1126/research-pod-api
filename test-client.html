@@ -23,6 +23,23 @@
             width: 0%;
         }
         .status-text { margin: 0.5rem 0; }
+        .similar-pods {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .similar-pod {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 8px;
+            transition: transform 0.2s ease;
+        }
+        .similar-pod:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -141,9 +158,9 @@ Message: ${message || 'N/A'}`;
                         `).join('')}
                     </ul>
 
-                    <h4>Summary:</h4>
+                    <h4>Transcript:</h4>
                     <div class="markdown-content">
-                        ${marked.parse(data.summary || 'No summary available')}
+                        ${marked.parse(data.transcript || 'No transcript available')}
                     </div>
                     
                     <h4>Sources:</h4>
@@ -159,6 +176,24 @@ Message: ${message || 'N/A'}`;
                             <source src="${data.audio_url}" type="audio/mpeg">
                             Your browser does not support the audio element.
                         </audio>
+                    ` : ''}
+
+                    ${data.similar_pods && data.similar_pods.length > 0 ? `
+                        <h4>Similar Research Pods:</h4>
+                        <div class="similar-pods">
+                            ${data.similar_pods.map(pod => `
+                                <div class="similar-pod" style="border: 1px solid #eee; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                                    <div><strong>Query:</strong> ${pod.query}</div>
+                                    <div><strong>Created:</strong> ${new Date(pod.created_at).toLocaleDateString()}</div>
+                                    ${pod.audio_url ? `
+                                        <audio controls style="margin-top: 5px">
+                                            <source src="${pod.audio_url}" type="audio/mpeg">
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
                     ` : ''}
                 `;
                 

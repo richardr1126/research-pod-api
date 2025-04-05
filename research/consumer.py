@@ -8,6 +8,7 @@ import os
 import json
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
+from prometheus_flask_exporter import PrometheusMetrics
 from dotenv import load_dotenv
 from threading import Thread
 from queue import Queue
@@ -18,8 +19,7 @@ import redis
 
 # Module imports
 from scraper.scrape import scrape_arxiv
-from rag import rag_chain
-from rag import vector_store
+from rag import rag_chain, vector_store
 from speech.tts import TextToSpeechClient
 from db import db, ResearchPods
 
@@ -80,6 +80,10 @@ redis_client = redis.Redis.from_url(
     decode_responses=True
 )
 
+# Initialize Prometheus metrics
+metrics = PrometheusMetrics(app, defaults_prefix='research')
+metrics.info('research_info', 'Application info', version='0.0.1')
+
 # Get consumer ID from hostname (for Kubernetes)
 hostname = socket.gethostname()
 consumer_id = hostname.split('-')[-1] if '-' in hostname else '0'
@@ -136,18 +140,26 @@ def process_message(message):
         vector_store.add_documents(papers)
         logger.info(f"Added papers to vector store for pod {pod_id}")
         
-        send_progress_update(pod_id, "IN_PROGRESS", 75, "Generating summary")
-        # Generate summary
-        summary = rag_chain.query(query)
+        send_progress_update(pod_id, "IN_PROGRESS", 75, "Generating transcript")
+        # Generate transcript using RAG
+        transcript = rag_chain.query(query)
+        logger.info(f"Generated transcript for pod {pod_id}")
 
-        # For now, use the summary as the transcript
-        transcript = summary
+        send_progress_update(pod_id, "IN_PROGRESS", 85, "Adding transcript to vector store")
+        # Add transcript to permanent vector store
+        vector_store.add_transcript(transcript, pod_id)
+        logger.info(f"Added transcript to vector store for pod {pod_id}")
 
-        # Delete the papers from the vector store
+        # Get similar pods based on transcript
+        similar_pod_ids = vector_store.get_similar_transcripts(pod_id, transcript)
+        logger.info(f"Found {len(similar_pod_ids)} similar pods")
+
+        # Clear temporary document embeddings after use
         vector_store.clear()
+        logger.info("Cleared temporary document embeddings")
 
         send_progress_update(pod_id, "IN_PROGRESS", 90, "Generating podcast audio")
-        # Generate audio from summary
+        # Generate audio from transcript
         with TextToSpeechClient() as tts_client:
             audio_data = tts_client.generate_speech(
                 text=transcript,
@@ -169,30 +181,30 @@ def process_message(message):
                 raise
         
         send_progress_update(pod_id, "IN_PROGRESS", 95, "Saving results to database")
-        # Update database entry with summary, sources, transcript, and audio URL
+        # Update database entry
         with app.app_context():
             research_pod = db.session.get(ResearchPods, pod_id)
             if research_pod:
-                research_pod.summary = summary
                 research_pod.transcript = transcript
                 research_pod.keywords_arxiv = json.dumps(papers_keyword_groups)
                 research_pod.sources_arxiv = json.dumps(papers_sources)
+                research_pod.audio_url = audio_url
+                research_pod.similar_pods = json.dumps(similar_pod_ids)
                 research_pod.status = "COMPLETED"
                 research_pod.consumer_id = consumer_id
-                research_pod.audio_url = audio_url  # Add the audio URL to the database
                 research_pod.updated_at = datetime.now(timezone.utc)
                 db.session.commit()
                 logger.info(f"Updated database for pod {pod_id}")
-
-        # Update the response to include the audio URL
+        
+        # Update the response to include similar pods
         response = {
             "pod_id": pod_id,
             "audio_url": audio_url,
             "query": query,
-            "summary": summary,
             "transcript": transcript,
             "sources_arxiv": papers_sources,
             "keywords_arxiv": papers_keyword_groups,
+            "similar_pods": similar_pod_ids
         }
 
         # Send response to Kafka and mark as complete

@@ -1,4 +1,5 @@
 flask
+prometheus-flask-exporter
 python-dotenv
 flask-cors
 gunicorn
