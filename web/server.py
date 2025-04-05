@@ -10,6 +10,7 @@ from kafka.errors import KafkaError
 from dotenv import load_dotenv
 import redis
 from datetime import datetime, timezone
+from prometheus_flask_exporter import PrometheusMetrics
 from db import db, ResearchPods
 
 # Configure logging
@@ -29,6 +30,10 @@ server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy
 db.init_app(server)
+
+# Initialize Prometheus metrics
+metrics = PrometheusMetrics(server, defaults_prefix="web")
+metrics.info('web_info', 'Application info', version='0.0.1')
 
 def init_db():
     with server.app_context():

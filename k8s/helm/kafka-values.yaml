@@ -72,6 +72,6 @@ metrics:
   serviceMonitor:
     enabled: true
     namespace: monitoring
-    scheme: "https"  # Add this
-    tlsConfig:       # Add this section
-      insecureSkipVerify: true
+    # scheme: "https"  # Add this
+    # tlsConfig:       # Add this section
+    #   insecureSkipVerify: true

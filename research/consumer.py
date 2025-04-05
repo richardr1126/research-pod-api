@@ -8,6 +8,7 @@ import os
 import json
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
+from prometheus_flask_exporter import PrometheusMetrics
 from dotenv import load_dotenv
 from threading import Thread
 from queue import Queue
@@ -78,6 +79,10 @@ redis_client = redis.Redis.from_url(
     os.getenv('REDIS_URL', 'redis://localhost:6379'),
     decode_responses=True
 )
+
+# Initialize Prometheus metrics
+metrics = PrometheusMetrics(app, defaults_prefix='research')
+metrics.info('research_info', 'Application info', version='0.0.1')
 
 # Get consumer ID from hostname (for Kubernetes)
 hostname = socket.gethostname()
