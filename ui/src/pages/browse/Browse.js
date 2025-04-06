@@ -12,54 +12,65 @@ function Browse() {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   
-  // Load podcasts from local storage when component mounts
+  // Load podcasts from API when component mounts
   useEffect(() => {
     const loadPodcasts = async () => {
-        setIsLoading(true);
+      setIsLoading(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate a delay for loading podcasts
-        // Mock podcast data
+        // In a real implementation, you would fetch this from the API
+        // For now, we'll use mock data
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+        
         const formattedPodcasts = [
-          { pod_id: 1, title: 'The Future of AI', duration: '25:43', date: '2025-03-05', sources: [
-            { title: 'MIT Technology Review: AI Advancements', url: 'https://example.com/mit-ai-review' },
-            { title: 'Stanford AI Lab Research', url: 'https://example.com/stanford-ai-lab' },
-            { title: 'Nature: Machine Learning Special', url: 'https://example.com/nature-ml' }
-          ] },
-          { pod_id: 2, title: 'Space Exploration in 2025', duration: '32:17', date: '2025-03-01', sources: [
-            { title: 'NASA Official Reports', url: 'https://example.com/nasa-reports' },
-            { title: 'SpaceX Mission Updates', url: 'https://example.com/spacex-updates' },
-            { title: 'Astrophysics Journal', url: 'https://example.com/astrophysics-journal' }
-          ]  },
-          { pod_id: 3, title: 'Climate Change Solutions', duration: '28:55', date: '2025-02-25', sources: [
-            { title: 'IPCC Latest Reports', url: 'https://example.com/ipcc-reports' },
-            { title: 'Environmental Science & Technology', url: 'https://example.com/env-sci-tech' },
-            { title: 'Global Climate Action Summit', url: 'https://example.com/climate-summit' }
-          ] },
+          { 
+            pod_id: "pod-1", 
+            title: 'The Future of AI', 
+            duration: '25:43', 
+            date: '2025-03-05', 
+            sources: [
+              { title: 'MIT Technology Review: AI Advancements', url: 'https://example.com/mit-ai-review' },
+              { title: 'Stanford AI Lab Research', url: 'https://example.com/stanford-ai-lab' },
+              { title: 'Nature: Machine Learning Special', url: 'https://example.com/nature-ml' }
+            ] 
+          },
+          { 
+            pod_id: "pod-2", 
+            title: 'Space Exploration in 2025', 
+            duration: '32:17', 
+            date: '2025-03-01', 
+            sources: [
+              { title: 'NASA Official Reports', url: 'https://example.com/nasa-reports' },
+              { title: 'SpaceX Mission Updates', url: 'https://example.com/spacex-updates' },
+              { title: 'Astrophysics Journal', url: 'https://example.com/astrophysics-journal' }
+            ]
+          },
+          { 
+            pod_id: "pod-3", 
+            title: 'Climate Change Solutions', 
+            duration: '28:55', 
+            date: '2025-02-25', 
+            sources: [
+              { title: 'IPCC Latest Reports', url: 'https://example.com/ipcc-reports' },
+              { title: 'Environmental Science & Technology', url: 'https://example.com/env-sci-tech' },
+              { title: 'Global Climate Action Summit', url: 'https://example.com/climate-summit' }
+            ] 
+          },
         ];
+        
         setPodcasts(formattedPodcasts);
         setFilteredPodcasts(formattedPodcasts);
       } catch (error) {
         console.error('Error loading podcasts:', error);
+        setError('Failed to load podcasts. Please try again later.');
       } finally {
         setIsLoading(false);
       }
     };
     
     loadPodcasts();
-    
-    // Set up a listener for storage changes (in case podcasts are added in another tab)
-    const handleStorageChange = () => {
-      loadPodcasts();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
   }, []);
   
-  // Handle search
+  // Filter podcasts based on search query
   const handleSearch = (e) => {
     const term = e.target.value;
     setQuery(term);
@@ -77,7 +88,7 @@ function Browse() {
     setFilteredPodcasts(filtered);
   };
 
-  // Handle form submission to generate a new podcast
+  // Generate a new podcast from the search query
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -86,17 +97,11 @@ function Browse() {
       setIsGenerating(true);
       setError('');
       
-      // Call the backend API to generate a podcast
+      console.log('Generating podcast for query:', query);
       const result = await apiService.createPodcast(query);
+      console.log('API response:', result);
       
-      if (result.status === 'success') {
-        // Store the job details locally
-        localStorage.setItem('currentPodcastJob', JSON.stringify({
-          podId: result.pod_id,
-          query: query,
-          timestamp: new Date().toISOString()
-        }));
-        
+      if (result.status === 'success' || result.pod_id) {
         // Navigate to the generating status page
         navigate(`/generating/${result.pod_id}`);
       } else {
@@ -114,30 +119,33 @@ function Browse() {
     <div className="browse-container">
       <h2>Browse Podcasts</h2>
       <div className="search-container">
-        <form className="search-container-form" onSubmit={handleSubmit}>
-        <textarea 
-          placeholder="Search podcasts..." 
-          className="search-input"
-          value={query}
-          onChange={handleSearch}
-          rows="1"
-        />
-        <button 
-          type="submit" 
-          className="generate-button"
-          disabled={isGenerating || !query.trim()}
-        >
-          {isGenerating ? 'Generating...' : 'Generate New Podcast'}
-        </button>
+        <form onSubmit={handleSubmit}>
+          <textarea 
+            placeholder="Search podcasts..." 
+            className="search-input"
+            value={query}
+            onChange={handleSearch}
+            rows={1}
+          />
+          <button 
+            type="submit" 
+            className="generate-button"
+            disabled={isGenerating || !query.trim()}
+          >
+            {isGenerating ? 'Generating...' : 'Generate New Podcast'}
+          </button>
         </form>
       </div>
+      
       {error && <div className="error-message">{error}</div>}
+      
       {isLoading ? (
         <div className="loading">Loading podcasts...</div>
       ) : filteredPodcasts.length > 0 ? (
         <div className="podcasts-list">
           {filteredPodcasts.map(podcast => (
             <PodcastCard
+              key={`podcast-${podcast.pod_id}`}
               podcast={podcast}
             />
           ))}

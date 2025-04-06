@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function PodcastCard({ podcast }) {
-
     const [showSources, setShowSources] = useState(false);
-
     const navigate = useNavigate();
 
     // Handle play button click
@@ -17,13 +15,13 @@ function PodcastCard({ podcast }) {
         alert(`Download functionality would be implemented here for podcast ID: ${podcast.pod_id}`);
     };
 
-    //Mock function to handle opening sources
+    // Toggle sources visibility
     const onToggleSources = () => {
         setShowSources(!showSources);
     };
 
     return (
-        <div className="podcast-card" key={podcast.pod_id}>
+        <div className="podcast-card">
             <h3>{podcast.title}</h3>
             <div className="podcast-details">
                 <span>Duration: {podcast.duration}</span>
@@ -32,32 +30,32 @@ function PodcastCard({ podcast }) {
             <div className="podcast-controls">
                 <button
                     className="play-button"
-                    onClick={() => onPlay(podcast.podId)}
+                    onClick={onPlay}
                 >
                     Play
                 </button>
                 <button
                     className="download-button"
-                    onClick={() => onDownload()}
+                    onClick={onDownload}
                 >
                     Download
                 </button>
                 <button
                     className="sources-button"
-                    onClick={() => onToggleSources()}
+                    onClick={onToggleSources}
                 >
                     Sources
                 </button>
             </div>
             {showSources && podcast.sources && (
-                <div className="sources-list">
+                <div className="sources-container">
                     <h4>Sources:</h4>
                     <ul className="sources-list">
                         {podcast.sources.map((source, index) => (
-                            <li key={index}>
-                                <Link to={source.url}>
+                            <li key={`source-${podcast.pod_id}-${index}`}>
+                                <a href={source.url} target="_blank" rel="noopener noreferrer">
                                     {source.title}
-                                </Link>
+                                </a>
                             </li>
                         ))}
                     </ul>
