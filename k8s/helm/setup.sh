@@ -215,6 +215,7 @@ helm repo update
 echo "Installing cert-manager..."
 helm upgrade --install -n cert-manager cert-manager jetstack/cert-manager \
   --create-namespace \
+  --version v1.17.1 \
   -f ./cert-manager/values.yaml \
   --wait
 
@@ -225,6 +226,7 @@ kubectl create secret generic cloudflare-dns \
   --from-literal=cloudflare_api_token=$CLOUDFLARE_API_TOKEN \
   --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install external-dns oci://registry-1.docker.io/bitnamicharts/external-dns \
+  --version 8.7.10 \
   -f ./ingress/external-dns-values.yaml \
   --namespace cert-manager \
   --wait
@@ -251,11 +253,13 @@ echo "Installing NGINX Ingress Controller..."
 if [ "$AZURE" = true ]; then
   # Azure has weird issues with the default NGINX Ingress Controller
   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --version 4.12.1 \
   -f ./ingress/nginx-values.yaml \
   -f ./ingress/aks-nginx-values.yaml \
   --wait
 else
   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --version 4.12.1 \
   -f ./ingress/nginx-values.yaml \
   --wait
 fi
@@ -270,6 +274,7 @@ helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
 # Install Redis standalone master
 echo "Installing Redis..."
 helm upgrade --install redis oci://registry-1.docker.io/bitnamicharts/redis \
+  --version 20.11.4 \
   -f redis-values.yaml \
   --wait
 
@@ -325,7 +330,10 @@ echo "Cleaning up Kafka client pod..."
 kubectl delete pod kafka-client --ignore-not-found
 
 echo "Installing kafka UI chart..."
-helm upgrade --install kafka-ui kafbat-ui/kafka-ui -f kafka-ui-values.yaml --wait
+helm upgrade --install kafka-ui kafbat-ui/kafka-ui \
+  --version 1.5.0 \
+  -f kafka-ui-values.yaml \
+  --wait
 
 # Cleanup old ybdb secret
 kubectl delete secrets -n yugabyte yugabyte-tls-client-cert --ignore-not-found
@@ -333,8 +341,8 @@ kubectl delete secrets -n default yugabyte-tls-client-cert --ignore-not-found
 
 # Install yugabytedb
 echo "Installing YugabyteDB..."
-# helm install yb-demo yugabytedb/yugabyte --version 2.25.0 --namespace yb-demo --wait
 helm upgrade --install yugabyte yugabytedb/yugabyte --namespace yugabyte --create-namespace \
+  --version 2024.2.2 \
   -f yugabyte-values.yaml \
   --wait \
   --timeout 15m
@@ -406,6 +414,7 @@ fi
 # Install kube-prometheus-stack
 echo "Installing kube-prometheus-stack..."
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  --version 70.4.1 \
   -f ./prometheus-grafana-stack.yaml \
   --namespace monitoring \
   --create-namespace \
