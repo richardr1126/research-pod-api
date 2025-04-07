@@ -178,13 +178,74 @@ def get_status(pod_id):
     
 @server.route('/v1/api/pod/get/<pod_id>', methods=['GET'])
 def get_pod(pod_id):
-    """Get research pod details from database."""
-    research_pod = db.get_or_404(ResearchPods, pod_id)
-    
-    # Convert the ResearchPod to dictionary format
-    response = research_pod.to_dict()
-    
-    return jsonify(response), 200
+    """Get research pod details from database, with Redis caching."""
+    try:
+        # Create cache key
+        cache_key = f"pod:{pod_id}:details"
+
+        # Check cache first
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            logger.info(f"Cache hit for pod details: {cache_key}")
+            return jsonify(json.loads(cached_data)), 200
+
+        logger.info(f"Cache miss for pod details: {cache_key}. Querying database.")
+        # If not in cache, query the database
+        research_pod = db.get_or_404(ResearchPods, pod_id)
+        
+        # Convert the ResearchPod to dictionary format
+        response = research_pod.to_dict()
+
+        # Cache the result in Redis (e.g., for 300 seconds)
+        redis_client.setex(cache_key, 300, json.dumps(response))
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        # Note: db.get_or_404 handles the 404 case internally
+        logger.error(f"Error getting pod details: {str(e)}")
+        # Avoid caching errors
+        return jsonify({"error": "An internal error occurred. Please try again later."}), 500
+@server.route('/v1/api/pods', methods=['GET'])
+def get_pods():
+    """Get a paginated list of research pods with Redis caching."""
+    try:
+        # Get pagination parameters
+        limit = request.args.get('limit', default=10, type=int)
+        offset = request.args.get('offset', default=0, type=int)
+
+        # Basic validation
+        if limit <= 0 or offset < 0:
+            return jsonify({"error": "Invalid limit or offset"}), 400
+        
+        # Limit the maximum number of pods per request
+        limit = min(limit, 100) # Set a reasonable max limit
+
+        # Create cache key
+        cache_key = f"pods:limit={limit}:offset={offset}"
+
+        # Check cache first
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            logger.info(f"Cache hit for key: {cache_key}")
+            return jsonify(json.loads(cached_data)), 200
+
+        logger.info(f"Cache miss for key: {cache_key}. Querying database.")
+        # Query database with pagination
+        pods_query = db.session.query(ResearchPods).order_by(ResearchPods.created_at.desc()).limit(limit).offset(offset)
+        pods = pods_query.all()
+
+        # Convert pods to list of dictionaries
+        pods_list = [pod.to_short_dict() for pod in pods]
+
+        # Cache the result in Redis (e.g., for 60 seconds)
+        redis_client.setex(cache_key, 60, json.dumps(pods_list))
+
+        return jsonify(pods_list), 200
+
+    except Exception as e:
+        logger.error(f"Error getting pods list: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # Health check endpoint
 @server.route('/health')

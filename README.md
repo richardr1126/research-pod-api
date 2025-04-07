@@ -141,7 +141,8 @@ Endpoints are currently deployed to:
 - Web API:
   - `https://api.richardr.dev/v1/api/pod/create`
   - `https://api.richardr.dev/v1/api/pod/status/{pod_id}`
-  - `https://api.richardr.dev/v1/api/pod/get/{pod_id}` (for full details, dont poll)
+  - `https://api.richardr.dev/v1/api/pod/get/{pod_id}` (for full details, cached)
+  - `https://api.richardr.dev/v1/api/pods` (paginated list, cached)
 - Kafka monitoring: `https://kafkaui.richardr.dev`
 - Event stream: `https://research-consumer-{0|1|2}.richardr.dev/v1/events/{pod_id}`
 
@@ -342,7 +343,7 @@ Get pod status:
 ```
 
 ### GET /v1/api/pod/get/{pod_id}
-Get full research pod details from database:
+Get full research pod details from database (results are cached in Redis):
 ```json
 {
   "id": "uuid-string",
@@ -369,6 +370,35 @@ Get full research pod details from database:
 ```
 
 The `similar_pods` array contains up to 5 related research pods, determined by semantic similarity between transcripts using pgvector's Maximum Marginal Relevance (MMR) search. This helps reduce redundancy in recommendations while maintaining diversity.
+
+### GET /v1/api/pods
+Get a paginated list of research pods. Results are cached in Redis.
+
+Query Parameters:
+- `limit` (integer, optional, default: 10, max: 100): Number of pods to return.
+- `offset` (integer, optional, default: 0): Number of pods to skip.
+
+Returns an array of pod objects similar to the `/v1/api/pod/get/{pod_id}` response, but potentially less detailed depending on the `to_dict()` implementation used. Example:
+```json
+[
+  {
+    "id": "uuid-string-1",
+    "query": "query 1",
+    "status": "COMPLETED",
+    "created_at": "ISO timestamp",
+    "updated_at": "ISO timestamp"
+    // ... other fields as defined in ResearchPods.to_dict() ...
+  },
+  {
+    "id": "uuid-string-2",
+    "query": "query 2",
+    "status": "PROCESSING",
+    "created_at": "ISO timestamp",
+    "updated_at": "ISO timestamp"
+    // ... other fields ...
+  }
+]
+```
 
 ### GET /health
 Checks if everything's running ok.
