@@ -64,6 +64,25 @@ class ResearchPods(db.Model):
             result['similar_pods'] = None
 
         return result
+    
+    def to_short_dict(self):
+        """
+        Convert the research pod to a short dictionary representation.
+        
+        Returns:
+            Dictionary representation of the research pod
+        """
+        return {
+            'id': self.id,
+            'query': self.query,
+            'audio_url': self.audio_url,
+            'keywords_arxiv': json.loads(self.keywords_arxiv) if self.keywords_arxiv else None,
+            'sources_arxiv': json.loads(self.sources_arxiv) if self.sources_arxiv else None,
+            'sources_ddg': json.loads(self.sources_ddg) if self.sources_ddg else None,
+            'status': self.status,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
 
     @classmethod
     def create_from_request(cls, query: str):
