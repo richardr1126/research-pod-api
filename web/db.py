@@ -19,8 +19,9 @@ class ResearchPods(db.Model):
     error_message = db.Column(db.Text)
     consumer_id = db.Column(db.String(50))  # Store which consumer processed this
     similar_pods = db.Column(db.Text)  # Store list of similar pod IDs as JSON
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = db.Column(db.BigInteger, default=lambda: int(datetime.now(timezone.utc).timestamp()))
+    updated_at = db.Column(db.BigInteger, default=lambda: int(datetime.now(timezone.utc).timestamp()), 
+                          onupdate=lambda: int(datetime.now(timezone.utc).timestamp()))
 
     def to_dict(self):
         """
@@ -40,8 +41,8 @@ class ResearchPods(db.Model):
             'status': self.status,
             'error_message': self.error_message,
             'consumer_id': self.consumer_id,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
         }
 
         # Load and hydrate similar pods
@@ -56,7 +57,7 @@ class ResearchPods(db.Model):
                         'id': similar_pod.id,
                         'query': similar_pod.query,
                         'audio_url': similar_pod.audio_url,
-                        'created_at': similar_pod.created_at.isoformat()
+                        'created_at': similar_pod.created_at
                     })
             
             result['similar_pods'] = similar_pods_hydrated
@@ -80,8 +81,8 @@ class ResearchPods(db.Model):
             'sources_arxiv': json.loads(self.sources_arxiv) if self.sources_arxiv else None,
             'sources_ddg': json.loads(self.sources_ddg) if self.sources_ddg else None,
             'status': self.status,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
         }
 
     @classmethod

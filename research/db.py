@@ -19,5 +19,6 @@ class ResearchPods(db.Model):
     error_message = db.Column(db.Text)
     consumer_id = db.Column(db.String(50))  # Store which consumer processed this
     similar_pods = db.Column(db.Text)  # Store similar pod recommendations as JSON
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = db.Column(db.BigInteger, default=lambda: int(datetime.now(timezone.utc).timestamp()))
+    updated_at = db.Column(db.BigInteger, default=lambda: int(datetime.now(timezone.utc).timestamp()), 
+                          onupdate=lambda: int(datetime.now(timezone.utc).timestamp()))

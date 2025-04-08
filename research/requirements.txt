@@ -14,8 +14,8 @@ Flask-SQLAlchemy==3.1.1
 # For paper scraping
 paperscraper==0.3.0
 nltk==3.9.1
-pymupdf==1.25.2
-pymupdf4llm==0.0.17
+pymupdf==1.25.5
+pymupdf4llm==0.0.20
 # Added RAG dependencies
 openai==1.70.0
 langchain==0.3.23
