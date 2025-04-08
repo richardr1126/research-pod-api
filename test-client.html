@@ -184,7 +184,7 @@ Message: ${message || 'N/A'}`;
                             ${data.similar_pods.map(pod => `
                                 <div class="similar-pod" style="border: 1px solid #eee; padding: 10px; margin: 5px 0; border-radius: 4px;">
                                     <div><strong>Query:</strong> ${pod.query}</div>
-                                    <div><strong>Created:</strong> ${new Date(pod.created_at).toLocaleDateString()}</div>
+                                    <div><strong>Created:</strong> ${new Date(pod.created_at * 1000).toLocaleDateString()}</div>
                                     ${pod.audio_url ? `
                                         <audio controls style="margin-top: 5px">
                                             <source src="${pod.audio_url}" type="audio/mpeg">

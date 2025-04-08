@@ -244,6 +244,14 @@ The scripts will:
 
 ## API Details
 
+### Timestamp Handling
+All timestamps in the API (`created_at` and `updated_at`) are returned as UTC seconds since epoch (January 1, 1970). When consuming these timestamps in a JavaScript frontend, multiply by 1000 to convert to milliseconds before creating a Date object:
+
+```javascript
+// Example of handling timestamps in frontend
+const date = new Date(timestamp * 1000);
+```
+
 ### Testing Flow
 
 1. Start a research job:
@@ -356,14 +364,14 @@ Get full research pod details from database (results are cached in Redis):
   "error_message": "Any error details",
   "progress": 0-100,
   "consumer_id": "consumer identifier",
-  "created_at": "ISO timestamp",
-  "updated_at": "ISO timestamp",
+  "created_at": 1712577600,  // UTC seconds since epoch
+  "updated_at": 1712577600,  // UTC seconds since epoch
   "similar_pods": [
     {
       "id": "uuid-string",
       "query": "similar query",
       "audio_url": "audio url for similar pod",
-      "created_at": "ISO timestamp"
+      "created_at": 1712577600  // UTC seconds since epoch
     }
   ]
 }
@@ -410,7 +418,7 @@ Returns:
   "redis": "healthy|unhealthy",
   "kafka_producer": "healthy|unhealthy",
   "database": "healthy|unhealthy",
-  "timestamp": "ISO timestamp"
+  "timestamp": 1712577600  // UTC seconds since epoch
 }
 ```
 
