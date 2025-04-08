@@ -192,7 +192,7 @@ def process_message(message):
                 research_pod.similar_pods = json.dumps(similar_pod_ids)
                 research_pod.status = "COMPLETED"
                 research_pod.consumer_id = consumer_id
-                research_pod.updated_at = datetime.now(timezone.utc)
+                research_pod.updated_at = int(datetime.now(timezone.utc).timestamp())
                 db.session.commit()
                 logger.info(f"Updated database for pod {pod_id}")
         
@@ -227,7 +227,7 @@ def process_message(message):
                 if research_pod:
                     research_pod.status = "ERROR"
                     research_pod.error_message = str(e)
-                    research_pod.updated_at = datetime.now(timezone.utc)
+                    research_pod.updated_at = int(datetime.now(timezone.utc).timestamp())
                     db.session.commit()
                     logger.info(f"Updated error status for pod {pod_id}")
             except Exception as db_error:

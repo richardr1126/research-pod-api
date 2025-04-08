@@ -98,7 +98,6 @@ if [ "$BUILD_WEB" = true ] || [ "$BUILD_CONSUMER" = true ]; then
       --set image.repository=${CONSUMER_IMAGE} \
       --wait
 
-    kubectl rollout restart statefulset research-consumer
   fi
 
   if [ "$BUILD_WEB" = true ]; then
@@ -114,7 +113,6 @@ if [ "$BUILD_WEB" = true ] || [ "$BUILD_CONSUMER" = true ]; then
       --set image.repository=${WEB_API_IMAGE} \
       --wait
 
-    kubectl rollout restart deployment web-api
   fi
 
   echo "Component build and upgrade complete!"
@@ -208,7 +206,8 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo add yugabytedb https://charts.yugabyte.com
 helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
-
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
 # Install cert-manager for Let's Encrypt
@@ -419,6 +418,11 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --create-namespace \
   --wait
+
+helm upgrade --install loki grafana/loki-stack \
+  --namespace monitoring \
+  --set loki.isDefault=false \
+  --wait 
 
 echo "Grafana admin password:"
 kubectl --namespace monitoring get secrets prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo

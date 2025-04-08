@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
 import multiprocessing
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Initialize Flask app
-server = Flask(__name__)
+server = Flask(__name__, static_folder='ui/dist', static_url_path='/')
 CORS(server)
 
 # Database Configuration
@@ -256,7 +256,7 @@ def health():
         "redis": "healthy",
         "kafka_producer": "healthy",
         "database": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": int(datetime.now(timezone.utc).timestamp())
     }
     
     # Check Redis connection
@@ -283,3 +283,19 @@ def health():
     
     http_status = 200 if status["status"] == "healthy" else 503
     return jsonify(status), http_status
+
+# --- Routes for React App ---
+@server.route('/', defaults={'path': ''})
+@server.route('/create', defaults={'path': 'create'})  # Add defaults parameter for /create
+@server.route('/<path:path>')
+def serve_react_app(path):
+    # First check if the path is trying to access a static file
+    if path != "" and os.path.exists(os.path.join(server.static_folder, path)):
+        return send_from_directory(server.static_folder, path)
+        
+    # For all other routes, serve index.html to let React Router handle routing
+    if os.path.exists(os.path.join(server.static_folder, 'index.html')):
+        return send_from_directory(server.static_folder, 'index.html')
+    else:
+        logger.error(f"React app index.html not found in: {server.static_folder}")
+        return jsonify({"error": "React app index.html not found"}), 404
