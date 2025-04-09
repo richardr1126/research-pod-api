@@ -19,16 +19,9 @@ function Create() {
       // Call the backend API to generate a podcast
       const result = await apiService.createPodcast(query);
       
-      if (result.status === 'success') {
-        // Store the job details locally
-        localStorage.setItem('currentPodcastJob', JSON.stringify({
-          jobId: result.job_id,
-          query: query,
-          timestamp: new Date().toISOString()
-        }));
-        
+      if (result.status === 'success' || result.pod_id) {
         // Navigate to the generating status page
-        navigate(`/generating/${result.job_id}`);
+        navigate(`/generating/${result.pod_id}`);
       } else {
         setError('Failed to start podcast generation. Please try again.');
       }

@@ -15,60 +15,6 @@ function GeneratingPodcast() {
   const [error, setError] = useState('');
   const [eventSource, setEventSource] = useState(null);
 
-  // Effect to start polling status when component mounts
-  useEffect(() => {
-    if (!podId) {
-      setError('No podcast ID provided');
-      return;
-    }
-
-    let statusInterval = null;
-    let eventStreamConnected = false;
-
-    // Poll for status until we get the events URL
-    const pollStatus = async () => {
-      try {
-        const statusData = await apiService.checkStatus(podId);
-        
-        // Update status display
-        setStatus(statusData.status);
-        setProgress(statusData.progress || 0);
-        setMessage(statusData.message || 'Processing...');
-        
-        // Connect to event stream once we have a valid events_url
-        if (!eventStreamConnected && statusData.events_url) {
-          console.log('Found events URL:', statusData.events_url);
-          connectEventStream(statusData.events_url);
-          eventStreamConnected = true;
-          // Stop polling once event stream is connected
-          clearInterval(statusInterval);
-        }
-        
-        // If the status is already completed or error, fetch details and stop polling
-        if (statusData.status === 'COMPLETED' || statusData.status === 'ERROR') {
-          clearInterval(statusInterval);
-          fetchPodDetails();
-        }
-      } catch (err) {
-        console.error('Error polling status:', err);
-        setError('Failed to get podcast status. Please try again later.');
-        clearInterval(statusInterval);
-      }
-    };
-
-    // Start polling
-    pollStatus(); // Call immediately
-    statusInterval = setInterval(pollStatus, 2000);
-
-    // Cleanup function
-    return () => {
-      if (statusInterval) clearInterval(statusInterval);
-      if (eventSource) {
-        eventSource.close();
-      }
-    };
-  }, [podId]);
-
   // Function to connect to the EventSource
   const connectEventStream = (eventsUrl) => {
     if (!eventsUrl || eventsUrl === 'null') {
@@ -104,8 +50,14 @@ function GeneratingPodcast() {
         setMessage(eventData.message || 'Processing...');
 
         // Check for completion
-        if (eventData.status === 'COMPLETED' || eventData.status === 'ERROR') {
-          console.log('Pod processing complete, fetching details...');
+        if (eventData.status === 'COMPLETED') {
+          console.log('Pod processing complete...');
+          newEventSource.close();
+          setEventSource(null);
+          // Navigate directly to the Play page when completed
+          setTimeout(() => navigate(`/play/${podId}`), 1500);
+        } else if (eventData.status === 'ERROR') {
+          console.log('Pod processing failed...');
           newEventSource.close();
           setEventSource(null);
           fetchPodDetails();
@@ -142,107 +94,179 @@ function GeneratingPodcast() {
     }
   };
 
-  // Function to handle going back to browse page
-  const handleBackToBrowse = () => {
-    navigate('/browse');
-  };
+  // Effect to start polling status when component mounts
+  useEffect(() => {
+    if (!podId) {
+      setError('No podcast ID provided');
+      return;
+    }
 
-  // Function to handle going to the podcast details page when complete
+    let statusInterval = null;
+    let eventStreamConnected = false;
+
+    // Poll for status until we get the events URL
+    const pollStatus = async () => {
+      try {
+        const statusData = await apiService.checkStatus(podId);
+        
+        // Update status display
+        setStatus(statusData.status);
+        setProgress(statusData.progress || 0);
+        setMessage(statusData.message || 'Processing...');
+        
+        // Connect to event stream once we have a valid events_url
+        if (!eventStreamConnected && statusData.events_url) {
+          console.log('Found events URL:', statusData.events_url);
+          connectEventStream(statusData.events_url);
+          eventStreamConnected = true;
+          // Stop polling once event stream is connected
+          clearInterval(statusInterval);
+        }
+        
+        // If the status is already completed, navigate to Play page
+        if (statusData.status === 'COMPLETED') {
+          clearInterval(statusInterval);
+          setTimeout(() => navigate(`/play/${podId}`), 1500);
+        } else if (statusData.status === 'ERROR') {
+          clearInterval(statusInterval);
+          fetchPodDetails();
+        }
+      } catch (err) {
+        console.error('Error polling status:', err);
+        setError('Failed to get podcast status. Please try again later.');
+        clearInterval(statusInterval);
+      }
+    };
+
+    // Start polling
+    pollStatus(); // Call immediately
+    statusInterval = setInterval(pollStatus, 2000);
+
+    // Cleanup function
+    return () => {
+      if (statusInterval) clearInterval(statusInterval);
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [podId]);
+
   const handleViewPodcast = () => {
-    navigate(`/podcast/${podId}`);
+    navigate(`/play/${podId}`);
   };
 
-  // Render the component
+  // Component render functions
+  const renderErrorState = () => (
+    <div className="error-message" style={{ textAlign: 'center' }}>
+      See generation log for error.
+      <button onClick={navigate('/browse')} className="button-primary">
+        Back to Browse
+      </button>
+    </div>
+  );
+
+  const renderStatusCard = () => (
+    <div className="status-card" style={{ textAlign: 'center' }}>
+      <h3>Status: {status}</h3>
+      <div className="progress-container" style={{ 
+        width: '80%', 
+        margin: '0 auto 20px',
+        position: 'relative'
+      }}>
+        <div className="progress-bar" style={{
+          height: '20px',
+          backgroundColor: '#f0f0f0',
+          borderRadius: '10px',
+          overflow: 'hidden',
+          border: '1px solid #ccc'
+        }}>
+          <div 
+            className="progress-fill" 
+            style={{ 
+              width: `${progress}%`,
+              height: '100%',
+              backgroundColor: '#4CAF50',
+              transition: 'width 0.3s ease'
+            }}
+          ></div>
+        </div>
+        <div className="progress-text" style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          fontWeight: 'bold'
+        }}>
+          {progress}%
+        </div>
+      </div>
+      <p className="status-message" style={{ margin: '0 auto 20px' }}>{message}</p>
+      
+      {status === 'COMPLETED' && (
+        <button onClick={handleViewPodcast} className="button-primary">
+          View Your Podcast
+        </button>
+      )}
+      
+      {(status === 'ERROR' || status === 'COMPLETED') && (
+        <button onClick={navigate('/browse')} className="button-secondary" style={{ marginLeft: status === 'COMPLETED' ? '10px' : '0' }}>
+          Back to Browse
+        </button>
+      )}
+    </div>
+  );
+
+  const renderGenerationLog = () => (
+    <div className="events-container" style={{ 
+      textAlign: 'center',
+      margin: '20px auto',
+      maxWidth: '80%'
+    }}>
+      <div className="events-list" style={{ 
+        backgroundColor: '#000',
+        color: '#fff',
+        height: '200px',
+        overflow: 'auto',
+        padding: '10px',
+        borderRadius: '5px',
+        textAlign: 'left',
+        fontFamily: 'monospace'
+      }}>
+        {events.length > 0 ? (
+          events.map((event, index) => (
+            <div key={`event-${index}`} className="event" style={{ margin: '5px 0' }}>
+              <span className="event-time" style={{ 
+                color: '#8ff', 
+                marginRight: '10px',
+                fontSize: '0.9em'
+              }}>
+                {event.timestamp}
+              </span>
+              <span className="event-message">{event.message}</span>
+            </div>
+          ))
+        ) : (
+          <p style={{ textAlign: 'center' }}>Waiting for events...</p>
+        )}
+      </div>
+    </div>
+  );
+
+  // Main render
   return (
-    <div className="generating-container">
-      <h2>Generating Your Podcast</h2>
+    <div className="generating-container" style={{ 
+      maxWidth: '800px', 
+      margin: '0 auto',
+      padding: '20px'
+    }}>
+      <h2 style={{ textAlign: 'center' }}>Generating Your Podcast</h2>
       
       {error ? (
-        <div className="error-message">
-          {error}
-          <button onClick={handleBackToBrowse} className="button-primary">
-            Back to Browse
-          </button>
-        </div>
+        renderErrorState()
       ) : (
         <>
-          <div className="status-card">
-            <h3>Status: {status}</h3>
-            <div className="progress-container">
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <div className="progress-text">{progress}%</div>
-            </div>
-            <p className="status-message">{message}</p>
-            
-            {status === 'COMPLETED' && (
-              <button onClick={handleViewPodcast} className="button-primary">
-                View Your Podcast
-              </button>
-            )}
-            
-            {(status === 'ERROR' || status === 'COMPLETED') && (
-              <button onClick={handleBackToBrowse} className="button-secondary">
-                Back to Browse
-              </button>
-            )}
-          </div>
-
-          {podDetails && status === 'COMPLETED' && (
-            <div className="pod-preview">
-              <h3>Podcast Preview</h3>
-              
-              <h4>Search Keywords:</h4>
-              <ul>
-                {(podDetails.keywords_arxiv || []).map((group, index) => (
-                  <li key={`keyword-group-${index}`}>{group.join(' | ')}</li>
-                ))}
-              </ul>
-
-              <h4>Summary:</h4>
-              
-              <h4>Sources:</h4>
-              <ul>
-                {(podDetails.sources_arxiv || []).map((source, index) => (
-                  <li key={`source-${index}`}>
-                    <a href={source.url} target="_blank" rel="noopener noreferrer">
-                      {source.title}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-              
-              {podDetails.audio_url && (
-                <>
-                  <h4>Audio:</h4>
-                  <audio controls>
-                    <source src={podDetails.audio_url} type="audio/mpeg" />
-                    Your browser does not support the audio element.
-                  </audio>
-                </>
-              )}
-            </div>
-          )}
-
-          <div className="events-container">
-            <h3>Generation Log</h3>
-            <div className="events-list">
-              {events.length > 0 ? (
-                events.map((event, index) => (
-                  <div key={`event-${index}`} className="event">
-                    <span className="event-time">{event.timestamp}</span>
-                    <span className="event-message">{event.message}</span>
-                  </div>
-                ))
-              ) : (
-                <p>Waiting for events...</p>
-              )}
-            </div>
-          </div>
+          {renderStatusCard()}
+          {renderGenerationLog()}
         </>
       )}
     </div>
