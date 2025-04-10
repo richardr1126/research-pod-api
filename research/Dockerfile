@@ -8,13 +8,18 @@ RUN apt-get update \
         libpq-dev \
         postgresql-client \
         libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+            && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install and setup Crawl4AI and Playwright
+RUN pip install -U crawl4ai && \
+    python -m playwright install --with-deps chromium && \
+    crawl4ai-setup
 
 # Copy application code
 COPY . .

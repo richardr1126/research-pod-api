@@ -206,6 +206,7 @@ def get_pod(pod_id):
         logger.error(f"Error getting pod details: {str(e)}")
         # Avoid caching errors
         return jsonify({"error": "An internal error occurred. Please try again later."}), 500
+    
 @server.route('/v1/api/pods', methods=['GET'])
 def get_pods():
     """Get a paginated list of research pods with Redis caching."""

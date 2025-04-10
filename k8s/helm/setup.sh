@@ -263,6 +263,20 @@ else
   --wait
 fi
 
+# Install kube-prometheus-stack
+echo "Installing kube-prometheus-stack..."
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  --version 70.4.1 \
+  -f ./prometheus-grafana-stack.yaml \
+  --namespace monitoring \
+  --create-namespace \
+  --wait
+
+helm upgrade --install loki grafana/loki-stack \
+  --namespace monitoring \
+  --set loki.isDefault=false \
+  --wait 
+
 # Install Kafka bitnami chart
 echo "Installing Kafka..."
 helm upgrade --install kafka oci://registry-1.docker.io/bitnamicharts/kafka \
@@ -408,21 +422,6 @@ if [ "$GPU" = true ]; then
     exit 1
   fi
 fi
-
-
-# Install kube-prometheus-stack
-echo "Installing kube-prometheus-stack..."
-helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
-  --version 70.4.1 \
-  -f ./prometheus-grafana-stack.yaml \
-  --namespace monitoring \
-  --create-namespace \
-  --wait
-
-helm upgrade --install loki grafana/loki-stack \
-  --namespace monitoring \
-  --set loki.isDefault=false \
-  --wait 
 
 echo "Grafana admin password:"
 kubectl --namespace monitoring get secrets prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo
