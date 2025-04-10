@@ -89,4 +89,3 @@ venv/
 .env
 *.log
 node_modules/
-web/ui/
