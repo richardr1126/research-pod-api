@@ -75,7 +75,7 @@ destroy_gcp() {
     # Delete the GKE cluster
     echo "Deleting GKE cluster..."
     gcloud container clusters delete $CLUSTER_NAME-gcp \
-        --region $GCP_REGION \
+        --zone $GCP_ZONE \
         --project $GCP_PROJECT_ID \
         --quiet
 
