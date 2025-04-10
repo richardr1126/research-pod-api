@@ -5,7 +5,7 @@ import apiService from '../services/apiService';
 function Play() {
   const { podId } = useParams();
   const audioRef = useRef(null);
-  
+
   const [podcast, setPodcast] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,16 +15,16 @@ function Play() {
   const [transcript, setTranscript] = useState([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [activeTab, setActiveTab] = useState('sources'); // Default to 'sources' tab
-  
+
   // Fetch podcast data when component mounts
   useEffect(() => {
     const fetchPodcast = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch podcast data directly from API
         const result = await apiService.getPodcast(podId);
-        
+
         if (result.status === 'COMPLETED') {
           setPodcast({
             id: podId,
@@ -32,18 +32,43 @@ function Play() {
             audioUrl: result.audio_url || `/v1/api/podcast/${podId}/audio`,
             transcriptUrl: `/v1/api/podcast/${podId}/transcript`,
             keywords: result.keywords_arxiv || [],
-            sources: result.sources_arxiv || []
+            sources: result.sources_arxiv || [],
+            summary: result.summary || 'Summary not available yet.' // Assuming summary might be available
           });
-          
+
           // In a real implementation, you'd fetch the transcript from the API
-          // For now using mock data
-          setTranscript([
-            { time: 0, text: "Welcome to this AI generated podcast." },
-            { time: 5, text: "Today we're exploring the topic you requested." },
-            { time: 10, text: "Let's dive into the details." }
-          ]);
-        } else {
-          setError('This podcast is not ready yet. Please check back later.');
+          // Example: Fetch transcript
+          try {
+            const transcriptData = await apiService.getTranscript(podId); // Assuming an API service method exists
+             // Assuming transcriptData is an array like [{ time: 0, text: "..."}]
+             // Make sure the format matches what the component expects
+            if (Array.isArray(transcriptData) && transcriptData.length > 0 && 'time' in transcriptData[0] && 'text' in transcriptData[0]) {
+                 setTranscript(transcriptData);
+            } else {
+                 // Fallback or default message if transcript format is wrong or empty
+                console.warn("Transcript format unexpected or empty, using placeholder.");
+                 setTranscript([
+                    { time: 0, text: "Welcome to this AI generated podcast." },
+                    { time: 5, text: "Today we're exploring the topic you requested." },
+                    { time: 10, text: "Let's dive into the details." }
+                 ]);
+            }
+          } catch (transcriptError) {
+            console.error("Failed to fetch transcript:", transcriptError);
+            // Set placeholder if fetch fails
+            setTranscript([
+                { time: 0, text: "Transcript loading failed." },
+            ]);
+          }
+
+
+        } else if (result.status === 'PROCESSING' || result.status === 'PENDING' || result.status === 'INITIALIZING') {
+             setError('This podcast is still generating. Please check back later.');
+             // Optional: Redirect to generating page?
+             // navigate(`/generating/${podId}`);
+        }
+         else {
+             setError(`Podcast generation failed with status: ${result.status}.`);
         }
       } catch (err) {
         console.error('Error fetching podcast:', err);
@@ -52,44 +77,63 @@ function Play() {
         setIsLoading(false);
       }
     };
-    
+
     fetchPodcast();
-  }, [podId]);
-  
+  }, [podId]); // Removed navigate from dependency array as it's not used here anymore
+
   // Set up audio element event listeners
   useEffect(() => {
     if (audioRef.current && podcast) {
       const audio = audioRef.current;
-      
+
       const handleTimeUpdate = () => {
         setCurrentTime(audio.currentTime);
-        
+
         // Update current transcript based on time
         const currentSegment = transcript.find((segment, index) => {
           const nextSegment = transcript[index + 1];
-          return segment.time <= audio.currentTime && 
+          return segment.time <= audio.currentTime &&
                  (!nextSegment || nextSegment.time > audio.currentTime);
         });
-        
+
         if (currentSegment) {
           setCurrentTranscript(currentSegment.text);
+        } else if (transcript.length > 0 && audio.currentTime < transcript[0].time) {
+            // If before the first segment, show nothing or a placeholder
+            setCurrentTranscript('');
         }
       };
-      
+
       const handleLoadedMetadata = () => {
-        setDuration(audio.duration);
+         // Check if duration is a valid number
+         if (isFinite(audio.duration)) {
+             setDuration(audio.duration);
+         } else {
+             console.warn("Audio duration is not available or infinite.");
+             setDuration(0); // Set to 0 or handle appropriately
+         }
       };
-      
+
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
-      const handleEnded = () => setIsPlaying(false);
-      
+      const handleEnded = () => {
+        setIsPlaying(false);
+        setCurrentTime(0); // Reset time to beginning on end
+        setCurrentTranscript(transcript.length > 0 ? transcript[0].text : ''); // Reset transcript display
+      };
+
       audio.addEventListener('timeupdate', handleTimeUpdate);
       audio.addEventListener('loadedmetadata', handleLoadedMetadata);
       audio.addEventListener('play', handlePlay);
       audio.addEventListener('pause', handlePause);
       audio.addEventListener('ended', handleEnded);
-      
+
+      // Attempt to load metadata if src is set but duration is 0
+      if (audio.src && duration === 0) {
+          audio.load(); // Trigger loading metadata explicitly if needed
+      }
+
+
       return () => {
         audio.removeEventListener('timeupdate', handleTimeUpdate);
         audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -98,58 +142,59 @@ function Play() {
         audio.removeEventListener('ended', handleEnded);
       };
     }
-  }, [audioRef, podcast, transcript]);
-  
+  }, [audioRef, podcast, transcript, duration]); // Added duration to dependencies
+
+
   // Toggle play/pause
   const togglePlay = () => {
-    if (audioRef.current) {
+    if (audioRef.current && duration > 0) { // Only allow play if duration is valid
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        audioRef.current.play().catch(e => console.error("Error playing audio:", e)); // Add catch for play promise
       }
+    } else {
+         console.warn("Audio not ready or has zero duration.");
     }
   };
-  
+
   // Seek to a specific position
   const handleSeek = (e) => {
-    if (audioRef.current) {
+    if (audioRef.current && duration > 0) { // Check duration before seeking
       const seekTime = (e.target.value / 100) * duration;
       audioRef.current.currentTime = seekTime;
       setCurrentTime(seekTime);
     }
   };
-  
+
   // Format time (mm:ss)
   const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+     const validSeconds = isFinite(seconds) ? seconds : 0;
+     const mins = Math.floor(validSeconds / 60);
+     const secs = Math.floor(validSeconds % 60);
+     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
-  
+
   // Render podcast tab content
   const renderTabContent = () => {
     if (!podcast) return null;
-    
+
     switch (activeTab) {
       case 'sources':
         return (
           <div className="tab-content sources-tab">
             <h4>Sources:</h4>
-            <ul style={{ 
-              listStyle: 'none', 
-              padding: 0,
-              maxWidth: '80%',
-              margin: '0 auto'
-            }}>
-              {(podcast.sources || []).map((source, index) => (
-                <li key={`source-${index}`}>
-                  <a href={source.url} target="_blank" rel="noopener noreferrer">
-                    {source.title || source.url || `Source ${index + 1}`}
-                  </a>
-                </li>
-              ))}
-            </ul>
+            {podcast.sources && podcast.sources.length > 0 ? (
+              <ul className="sources-list-play">
+                {podcast.sources.map((source, index) => (
+                  <li key={`source-${index}`}>
+                    <a href={source.url} target="_blank" rel="noopener noreferrer">
+                      {source.title || source.url || `Source ${index + 1}`}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : <p>No sources available.</p>}
           </div>
         );
       case 'summary':
@@ -163,230 +208,159 @@ function Play() {
         return (
           <div className="tab-content keywords-tab">
             <h4>Search Keywords:</h4>
-            <ul style={{ 
-              listStyle: 'none', 
-              padding: 0,
-              maxWidth: '80%',
-              margin: '0 auto'
-            }}>
-              {(podcast.keywords || []).map((group, index) => (
-                <li key={`keyword-group-${index}`}>{Array.isArray(group) ? group.join(' | ') : group}</li>
-              ))}
-            </ul>
+             {podcast.keywords && podcast.keywords.length > 0 ? (
+              <ul className="keywords-list-play">
+                {podcast.keywords.map((group, index) => (
+                  <li key={`keyword-group-${index}`}>{Array.isArray(group) ? group.join(' | ') : group}</li>
+                ))}
+              </ul>
+            ) : <p>No keywords available.</p>}
           </div>
         );
       default:
         return null;
     }
   };
-  
-  if (isLoading) return <div className="loading" style={{ textAlign: 'center', padding: '40px' }}>Loading podcast...</div>;
-  if (error) return <div className="error-message" style={{ textAlign: 'center', padding: '40px', color: 'red' }}>{error}</div>;
-  if (!podcast) return <div className="not-found" style={{ textAlign: 'center', padding: '40px' }}>Podcast not found</div>;
-  
+
+  if (isLoading) return <div className="loading loading-message">Loading podcast...</div>;
+  if (error) return <div className="error-message">{error}</div>;
+  if (!podcast) return <div className="not-found not-found-message">Podcast not found</div>;
+
   return (
-    <div className="Play-container" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <h2 style={{ textAlign: 'center' }}>{podcast.title}</h2>
-      
-      {/* Audio element (hidden) */}
-      <audio 
+    <div className="play-container">
+      <h2 className="play-title">{podcast.title}</h2>
+
+      {/* Audio element (hidden but controlled) */}
+      <audio
         ref={audioRef}
-        src={podcast.audioUrl} 
+        src={podcast.audioUrl}
         preload="metadata"
+        onLoadedMetadata={() => { // Directly handle loadedmetadata to ensure duration is set
+             if (audioRef.current && isFinite(audioRef.current.duration)) {
+                 setDuration(audioRef.current.duration);
+             }
+        }}
+        onError={(e) => {
+             console.error("Audio loading error:", e);
+             setError("Failed to load audio file.");
+        }}
       />
-      
+
       {/* Custom player controls */}
-      <div className="player-controls" style={{ 
-        margin: '20px 0',
-        padding: '15px',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '8px'
-      }}>
+      <div className="player-controls">
         {/* Time display and seek bar */}
-        <div className="time-controls" style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: '15px'
-        }}>
-          <div className="time-display current-time" style={{ minWidth: '45px', textAlign: 'right', marginRight: '10px' }}>
+        <div className="time-controls">
+          <div className="time-display current-time">
             {formatTime(currentTime)}
           </div>
-          
-          <input 
-            type="range" 
-            min="0" 
-            max="100" 
-            value={(currentTime / duration) * 100 || 0}
+
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={duration > 0 ? (currentTime / duration) * 100 : 0} // Prevent NaN if duration is 0
             onChange={handleSeek}
+            disabled={duration === 0} // Disable slider if no duration
             className="time-scrubber"
-            style={{ 
-              flex: 1, 
-              height: '8px', 
-              borderRadius: '4px',
-              appearance: 'none',
-              backgroundColor: '#ddd'
-            }}
           />
-          
-          <div className="time-display duration" style={{ minWidth: '45px', marginLeft: '10px' }}>
+
+          <div className="time-display duration">
             {formatTime(duration)}
           </div>
         </div>
-        
+
         {/* Play button centered below the seek bar */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <button 
-            className={`play-button ${isPlaying ? 'pause' : 'play'}`}
+        <div className="play-button-container">
+          <button
+            className={`play-pause-button ${isPlaying ? 'pause' : 'play'}`}
             onClick={togglePlay}
-            style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              backgroundColor: isPlaying ? '#ff5555' : '#4CAF50',
-              color: 'white',
-              border: 'none',
-              fontSize: '16px',
-              cursor: 'pointer'
-            }}
+            disabled={duration === 0} // Disable button if no duration
           >
             {isPlaying ? 'Pause' : 'Play'}
           </button>
         </div>
       </div>
-      
+
       {/* Current transcript line */}
-      <div className="current-transcript" style={{ 
-        backgroundColor: '#eef8ff', 
-        padding: '15px', 
-        borderRadius: '8px',
-        marginBottom: '20px',
-        textAlign: 'center',
-        fontSize: '18px',
-        minHeight: '30px'
-      }}>
+      <div className="current-transcript">
         {currentTranscript}
       </div>
-      
+
       {/* Full transcript (styled like the log in GeneratingPodcast.js) */}
       <div className="transcript-container">
-        <h3 style={{ textAlign: 'center' }}>Transcript</h3>
-        <div className="transcript-log" style={{ 
-          backgroundColor: '#000',
-          color: '#fff',
-          height: '200px',
-          overflow: 'auto',
-          padding: '10px',
-          borderRadius: '5px',
-          textAlign: 'left',
-          fontFamily: 'monospace',
-          marginBottom: '20px'
-        }}>
+        <h3 className="transcript-title">Transcript</h3>
+        <div className="transcript-log">
           {transcript.length > 0 ? (
             transcript.map((segment, index) => (
-              <div 
+              <div
                 key={index}
-                className={`transcript-segment ${Math.abs(segment.time - currentTime) < 2 ? 'active' : ''}`}
+                 // Use Math.floor for comparison to avoid floating point issues maybe? Or a tolerance.
+                className={`transcript-segment ${Math.abs(segment.time - currentTime) < 1 ? 'active' : ''}`}
                 onClick={() => {
-                  if (audioRef.current) {
+                  if (audioRef.current && duration > 0) { // Check duration before seeking
                     audioRef.current.currentTime = segment.time;
-                    setCurrentTime(segment.time);
+                    setCurrentTime(segment.time); // Update state immediately
                   }
                 }}
-                style={{ 
-                  margin: '5px 0',
-                  cursor: 'pointer',
-                  backgroundColor: Math.abs(segment.time - currentTime) < 2 ? '#333' : 'transparent',
-                  padding: '5px',
-                  borderRadius: '3px'
+                // Add role and tabindex for accessibility
+                role="button"
+                tabIndex="0"
+                onKeyPress={(e) => { // Allow activation with Enter key
+                    if (e.key === 'Enter' && audioRef.current && duration > 0) {
+                        audioRef.current.currentTime = segment.time;
+                        setCurrentTime(segment.time);
+                    }
                 }}
+
               >
-                <span className="transcript-time" style={{ 
-                  color: '#8ff',
-                  marginRight: '10px',
-                  fontSize: '0.9em'
-                }}>
+                <span className="transcript-time">
                   [{formatTime(segment.time)}]
                 </span>
                 <span className="transcript-text">{segment.text}</span>
               </div>
             ))
           ) : (
-            <p style={{ textAlign: 'center' }}>No transcript available...</p>
+            <p className="transcript-empty-message">No transcript available...</p>
           )}
         </div>
       </div>
-      
+
       {/* Tabset for Podcast Details */}
       <div className="podcast-details-tabs">
-        <div className="tab-navigation" style={{
-          display: 'flex',
-          borderBottom: '1px solid #ddd',
-          marginBottom: '15px'
-        }}>
-          <div 
+        <div className="tab-navigation">
+          <div
             className={`tab-button ${activeTab === 'sources' ? 'active' : ''}`}
             onClick={() => setActiveTab('sources')}
-            style={{
-              padding: '10px 15px',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'sources' ? '#f0f0f0' : 'transparent',
-              borderTopLeftRadius: '8px',
-              borderTopRightRadius: '8px',
-              borderTop: activeTab === 'sources' ? '1px solid #ddd' : 'none',
-              borderLeft: activeTab === 'sources' ? '1px solid #ddd' : 'none',
-              borderRight: activeTab === 'sources' ? '1px solid #ddd' : 'none',
-              marginRight: '5px',
-              fontWeight: activeTab === 'sources' ? 'bold' : 'normal'
-            }}
+            role="tab" // Accessibility
+            aria-selected={activeTab === 'sources'} // Accessibility
+            tabIndex={0} // Accessibility
+            onKeyPress={(e) => e.key === 'Enter' && setActiveTab('sources')} // Accessibility
           >
             Sources
           </div>
-          <div 
+          <div
             className={`tab-button ${activeTab === 'summary' ? 'active' : ''}`}
             onClick={() => setActiveTab('summary')}
-            style={{
-              padding: '10px 15px',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'summary' ? '#f0f0f0' : 'transparent',
-              borderTopLeftRadius: '8px',
-              borderTopRightRadius: '8px',
-              borderTop: activeTab === 'summary' ? '1px solid #ddd' : 'none',
-              borderLeft: activeTab === 'summary' ? '1px solid #ddd' : 'none',
-              borderRight: activeTab === 'summary' ? '1px solid #ddd' : 'none',
-              marginRight: '5px',
-              fontWeight: activeTab === 'summary' ? 'bold' : 'normal'
-            }}
+            role="tab"
+            aria-selected={activeTab === 'summary'}
+            tabIndex={0}
+            onKeyPress={(e) => e.key === 'Enter' && setActiveTab('summary')}
           >
             Summary
           </div>
-          <div 
+          <div
             className={`tab-button ${activeTab === 'keywords' ? 'active' : ''}`}
             onClick={() => setActiveTab('keywords')}
-            style={{
-              padding: '10px 15px',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'keywords' ? '#f0f0f0' : 'transparent',
-              borderTopLeftRadius: '8px',
-              borderTopRightRadius: '8px',
-              borderTop: activeTab === 'keywords' ? '1px solid #ddd' : 'none',
-              borderLeft: activeTab === 'keywords' ? '1px solid #ddd' : 'none',
-              borderRight: activeTab === 'keywords' ? '1px solid #ddd' : 'none',
-              fontWeight: activeTab === 'keywords' ? 'bold' : 'normal'
-            }}
+            role="tab"
+            aria-selected={activeTab === 'keywords'}
+            tabIndex={0}
+            onKeyPress={(e) => e.key === 'Enter' && setActiveTab('keywords')}
           >
             Search Keywords
           </div>
         </div>
-        
-        <div className="tab-content-container" style={{
-          padding: '15px',
-          backgroundColor: '#f0f0f0',
-          borderBottomLeftRadius: '8px',
-          borderBottomRightRadius: '8px',
-          borderLeft: '1px solid #ddd',
-          borderRight: '1px solid #ddd',
-          borderBottom: '1px solid #ddd'
-        }}>
+
+        <div className="tab-content-container">
           {renderTabContent()}
         </div>
       </div>

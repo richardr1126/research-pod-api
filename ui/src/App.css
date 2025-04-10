@@ -140,10 +140,29 @@ body {
   overflow-y: auto;
 }
 
+/* General Messages */
+.loading-message {
+  text-align: center;
+  padding: 40px;
+}
+
+.error-message {
+  text-align: center;
+  padding: 40px;
+  color: red;
+}
+
+.not-found-message {
+  text-align: center;
+  padding: 40px;
+}
+
+
 /* Generate podcast styles */
 .generate-container {
   max-width: 800px;
   margin: 0 auto;
+  padding: 20px; /* Added from inline */
 }
 
 .generate-container h2 {
@@ -171,7 +190,7 @@ body {
   background-color: #3498db;
   color: white;
   border: none;
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 8px 8px 0; /* Note: Might need adjustment if it's standalone */
   font-size: 16px;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -267,6 +286,45 @@ body {
   gap: 10px;
 }
 
+/* Shared Button Styles (Example) */
+.button-primary {
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s;
+    text-decoration: none; /* For Link components */
+    display: inline-block; /* For Link components */
+    text-align: center;
+}
+
+.button-primary:hover {
+    background-color: #2980b9;
+}
+
+.button-secondary {
+    padding: 10px 20px;
+    background-color: #e0e0e0;
+    color: #333;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s;
+    text-decoration: none; /* For Link components */
+    display: inline-block; /* For Link components */
+    text-align: center;
+}
+
+.button-secondary:hover {
+    background-color: #bdbdbd;
+}
+
+
+/* Styles specific to Browse Card Buttons */
 .play-button, .download-button {
   padding: 8px 16px;
   border: none;
@@ -283,11 +341,6 @@ body {
 .download-button {
   background-color: #e0e0e0;
   color: #333;
-}
-
-.podcast-controls {
-  display: flex;
-  gap: 10px; /* Adds space between buttons */
 }
 
 .sources-button {
@@ -331,32 +384,432 @@ body {
   text-decoration: underline;
 }
 
+
+/* --- Styles Extracted from GeneratingPodcast.js --- */
+
+.generating-title {
+  text-align: center;
+}
+
+.generating-error-message {
+  text-align: center;
+}
+
+.status-card {
+  text-align: center; /* Added from inline */
+   /* Existing styles for .podcast-card might conflict or overlap,
+      ensure specificity or unique naming if needed */
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px; /* Added margin */
+}
+
+.progress-container {
+  width: 80%;
+  margin: 0 auto 20px;
+  position: relative;
+}
+
+.progress-bar {
+  height: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #ccc;
+}
+
+/* .progress-fill is dynamic, style kept inline */
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+  color: #333; /* Added color for visibility */
+}
+
+.status-message {
+  margin: 0 auto 20px;
+  color: #555; /* Added specific color */
+}
+
+.events-container {
+  text-align: center;
+  margin: 20px auto;
+  max-width: 80%;
+}
+
+.events-list {
+  background-color: #000;
+  color: #fff;
+  height: 200px;
+  overflow-y: auto; /* Changed to overflow-y */
+  padding: 10px;
+  border-radius: 5px;
+  text-align: left;
+  font-family: monospace;
+  border: 1px solid #333; /* Added border */
+}
+
+.event {
+  margin: 5px 0;
+  line-height: 1.4; /* Improve readability */
+}
+
+.event-time {
+  color: #8ff;
+  margin-right: 10px;
+  font-size: 0.9em;
+}
+
+.events-waiting-message {
+  text-align: center;
+  color: #ccc; /* Adjusted color */
+  padding-top: 20px; /* Add some padding */
+}
+
+
+/* --- Styles Extracted from Play.js --- */
+
+.play-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.play-title {
+  text-align: center;
+  margin-bottom: 20px; /* Added margin */
+}
+
+.player-controls {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  border: 1px solid #ddd; /* Added subtle border */
+}
+
+.time-controls {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.time-display {
+  font-size: 0.9em;
+  color: #555;
+}
+
+.time-display.current-time {
+  min-width: 45px;
+  text-align: right;
+  margin-right: 10px;
+}
+
+.time-scrubber {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #ddd;
+  cursor: pointer;
+}
+/* Style for range input thumb */
+.time-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #3498db;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.time-scrubber::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #3498db;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none; /* Needed for Firefox */
+}
+
+.time-display.duration {
+  min-width: 45px;
+  margin-left: 10px;
+}
+
+.play-button-container {
+  display: flex;
+  justify-content: center;
+}
+
+.play-pause-button {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  color: white;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; /* Center icon/text */
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+.play-pause-button.play {
+  background-color: #4CAF50; /* Green for Play */
+}
+.play-pause-button.pause {
+  background-color: #ff5555; /* Red for Pause */
+}
+.play-pause-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+
+.current-transcript {
+  background-color: #eef8ff;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 18px;
+  min-height: 50px; /* Increased min-height */
+  border: 1px solid #cce7ff; /* Softer border */
+  display: flex; /* Center text vertically */
+  align-items: center;
+  justify-content: center;
+  font-style: italic; /* Make it stand out */
+}
+
+.transcript-container {
+  margin-bottom: 30px; /* Add space below transcript */
+}
+
+.transcript-title {
+  text-align: center;
+  margin-bottom: 10px; /* Space below title */
+}
+
+.transcript-log {
+  background-color: #000;
+  color: #fff;
+  height: 200px;
+  overflow-y: auto; /* Ensure vertical scroll */
+  padding: 10px;
+  border-radius: 5px;
+  text-align: left;
+  font-family: monospace;
+  margin-bottom: 20px;
+  border: 1px solid #333; /* Added border */
+}
+
+.transcript-segment {
+  margin: 5px 0;
+  cursor: pointer;
+  background-color: transparent;
+  padding: 5px;
+  border-radius: 3px;
+  transition: background-color 0.1s ease; /* Smooth transition */
+  line-height: 1.4; /* Improve readability */
+}
+.transcript-segment:hover {
+  background-color: #222; /* Hover effect */
+}
+.transcript-segment.active {
+  background-color: #333; /* Active segment */
+  font-weight: bold; /* Highlight active text */
+}
+.transcript-segment:focus {
+    outline: 1px solid #8ff; /* Accessibility focus */
+}
+
+
+.transcript-time {
+  color: #8ff;
+  margin-right: 10px;
+  font-size: 0.9em;
+}
+
+.transcript-empty-message {
+  text-align: center;
+  color: #aaa; /* Adjusted color */
+  padding: 20px; /* Add padding */
+}
+
+/* Updated tabs styling to match navigation sidebar blue and white theme */
+.podcast-details-tabs {
+  margin-top: 30px; /* Space above tabs */
+}
+
+.tab-navigation {
+  display: flex;
+  border-bottom: 2px solid #173b61;
+  margin-bottom: 0;
+}
+
+.tab-button {
+  padding: 12px 16px;
+  cursor: pointer;
+  background-color: #f8f9fa;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-right: 5px;
+  font-weight: normal;
+  color: #173b61;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.tab-button:hover {
+  background-color: #e9ecef;
+  color: #173b61;
+}
+
+.tab-button.active {
+  background-color: #173b61;
+  color: #ecf0f1;
+  font-weight: bold;
+  position: relative;
+  top: 1px;
+  border-color: #173b61;
+}
+
+.tab-button:focus {
+  outline: 1px solid #3498db;
+}
+
+.tab-content-container {
+  padding: 15px;
+  background-color: #fff;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border: 1px solid #173b61;
+  border-top: none;
+  min-height: 150px;
+  color: #2c3e50;
+}
+
+/* Tab content specific styling */
+.tab-content h4 {
+  color: #173b61;
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+/* Updated specific lists within Play tabs */
+.sources-list-play,
+.keywords-list-play {
+  list-style: none;
+  padding: 0;
+  max-width: 90%;
+  margin: 0 auto;
+}
+
+.sources-list-play li,
+.keywords-list-play li {
+  margin-bottom: 8px;
+}
+
+.sources-list-play a {
+  color: #3498db;
+  text-decoration: none;
+}
+
+.sources-list-play a:hover {
+  text-decoration: underline;
+  color: #2980b9;
+}
+
+.keywords-list-play li {
+  background-color: #eef5fb;
+  padding: 5px 10px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 0.9em;
+  border: 1px solid #d6e6f2;
+  color: #173b61;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .app {
     flex-direction: column;
   }
-  
+
   .sidebar, .recommender-sidebar {
     width: 100%;
     padding: 15px;
+    max-height: 200px; /* Limit height on mobile */
+    overflow-y: auto; /* Allow scrolling if needed */
   }
-  
+
   .navigation {
     flex-direction: row;
-    justify-content: center;
+    justify-content: space-around; /* Space out buttons */
+    flex-wrap: wrap; /* Allow wrapping */
   }
-  
+  .nav-button {
+      text-align: center;
+      flex-grow: 1; /* Make buttons fill space */
+  }
+
   .content {
     padding: 20px 15px;
   }
-  
+
   .podcasts-list {
     grid-template-columns: 1fr;
   }
-  
+
   .recommender-content {
     display: flex;
     flex-direction: column;
+  }
+
+  .search-container form {
+      flex-direction: column; /* Stack input and button */
+  }
+  .search-input {
+      border-radius: 8px 8px 0 0; /* Adjust radius */
+      margin-bottom: 5px;
+  }
+  .search-button {
+      border-radius: 0 0 8px 8px; /* Adjust radius */
+      width: 100%; /* Full width button */
+  }
+
+  .progress-container {
+      width: 95%; /* More width on mobile */
+  }
+  .events-container {
+      max-width: 95%; /* More width on mobile */
+  }
+  .tab-navigation {
+      flex-wrap: wrap; /* Allow tabs to wrap */
+  }
+  .tab-button {
+      flex-basis: 33%; /* Roughly 3 tabs per row */
+      text-align: center;
+      margin-right: 0; /* Remove margin for wrapping */
+      border-radius: 6px 6px 0 0; /* Updated for tabs */
+      margin-bottom: 0;
+  }
+  .tab-button.active {
+      border: 1px solid #173b61; /* Updated border color */
+      border-bottom: none;
+      top: 1px; /* Keep the positioning */
+  }
+  .tab-content-container {
+      border-radius: 0 0 8px 8px; /* Updated for consistency */
+      border: 1px solid #173b61; /* Match the sidebar color */
   }
 }
