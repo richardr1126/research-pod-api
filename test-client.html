@@ -23,6 +23,67 @@
             width: 0%;
         }
         .status-text { margin: 0.5rem 0; }
+        .sources-section {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .keyword-group {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 0.3rem 0.6rem;
+            border-radius: 15px;
+            margin: 0.2rem;
+        }
+        .markdown-content {
+            line-height: 1.6;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .similar-pods {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .similar-pod {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 8px;
+            transition: transform 0.2s ease;
+        }
+        .similar-pod:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .source-list {
+            list-style: none;
+            padding: 0;
+        }
+        .source-item {
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .source-title {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .source-meta {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 0.3rem;
+        }
+        .audio-player {
+            width: 100%;
+            margin: 1rem 0;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -60,7 +121,7 @@
     </div>
 
     <script>
-        const API_BASE = 'https://api.richardr.dev'; // Change this to match your API URL
+        const API_BASE = 'http://localhost:8888'; // Change this to match your API URL
         let currentPodId = null;
         let eventSource = null;
 
@@ -77,13 +138,15 @@
                 const data = await response.json();
                 
                 currentPodId = data.pod_id;
-                // Initialize the status display with the new pod
                 updateStatusDisplay('INITIALIZING', 0, 'Starting research pod...');
-                
-                // Start status polling which will handle event stream connection
                 pollStatus(data.pod_id);
             } catch (error) {
                 console.error('Error:', error);
+                document.getElementById('podDetails').innerHTML = `
+                    <div style="color: red; padding: 1rem; background: #fee; border-radius: 4px;">
+                        Error: ${error.message}
+                    </div>
+                `;
             }
         };
 
@@ -101,15 +164,12 @@
                     const response = await fetch(`${API_BASE}/v1/api/pod/status/${podId}`);
                     const data = await response.json();
                     
-                    // Update status display
                     updateStatusDisplay(data.status, data.progress, data.message);
                     
-                    // Connect to event stream once we have a valid events_url
                     if (!eventStreamConnected && data.events_url) {
                         console.log('Found events URL:', data.events_url);
                         connectEventStream(data.events_url);
                         eventStreamConnected = true;
-                        // Stop polling once event stream is connected
                         clearInterval(intervalId);
                     }
                 } catch (error) {
@@ -120,11 +180,12 @@
 
         function updateStatusDisplay(status, progress, message) {
             document.getElementById('progressFill').style.width = `${progress || 0}%`;
-            document.getElementById('statusText').innerText = 
-                `Status: ${status}
-Pod ID: ${currentPodId}
-Progress: ${progress || 0}%
-Message: ${message || 'N/A'}`;
+            document.getElementById('statusText').innerHTML = `
+                <div><strong>Status:</strong> ${status}</div>
+                <div><strong>Pod ID:</strong> ${currentPodId}</div>
+                <div><strong>Progress:</strong> ${progress || 0}%</div>
+                <div><strong>Message:</strong> ${message || 'N/A'}</div>
+            `;
         }
 
         async function fetchPodDetails(podId) {
@@ -132,40 +193,95 @@ Message: ${message || 'N/A'}`;
                 const response = await fetch(`${API_BASE}/v1/api/pod/get/${podId}`);
                 const data = await response.json();
                 
-                // Format the pod details
                 const details = `
-                    <h4>Search Keywords:</h4>
-                    <ul>
-                        ${(data.keywords_arxiv || []).map(group => `
-                            <li>${group.join(' | ')}</li>
-                        `).join('')}
-                    </ul>
+                    <div class="sources-section">
+                        <h4>Search Keywords:</h4>
+                        <div>
+                            ${(data.keywords_arxiv || []).map(group => `
+                                <span class="keyword-group">${group.join(' | ')}</span>
+                            `).join('')}
+                        </div>
+                    </div>
 
-                    <h4>Summary:</h4>
-                    <div class="markdown-content">
-                        ${marked.parse(data.summary || 'No summary available')}
+                    <div class="sources-section">
+                        <h4>Academic Sources:</h4>
+                        <ul class="source-list">
+                            ${(data.sources_arxiv || []).map(source => `
+                                <li class="source-item">
+                                    <div class="source-title">
+                                        <a href="${source.url}" target="_blank">${source.title}</a>
+                                    </div>
+                                    <div class="source-meta">
+                                        ${source.authors ? `Authors: ${source.authors}` : ''}
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <div class="sources-section">
+                        <h4>Web Sources:</h4>
+                        <ul class="source-list">
+                            ${(data.sources_ddg || []).map(source => `
+                                <li class="source-item">
+                                    <div class="source-title">
+                                        <a href="${source.url}" target="_blank">${source.title}</a>
+                                    </div>
+                                    <div class="source-meta">
+                                        ${source.snippet ? `<div>${source.snippet}</div>` : ''}
+                                        ${source.keywords_used ? `<div>Keywords: ${source.keywords_used.join(', ')}</div>` : ''}
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <div class="sources-section">
+                        <h4>Generated Transcript:</h4>
+                        <div class="markdown-content">
+                            ${marked.parse(data.transcript || 'No transcript available')}
+                        </div>
                     </div>
                     
-                    <h4>Sources:</h4>
-                    <ul>
-                        ${(data.sources_arxiv || []).map(source => `
-                            <li><a href="${source.url}" target="_blank">${source.title}</a></li>
-                        `).join('')}
-                    </ul>
-                    
                     ${data.audio_url ? `
-                        <h4>Audio:</h4>
-                        <audio controls>
-                            <source src="${data.audio_url}" type="audio/mpeg">
-                            Your browser does not support the audio element.
-                        </audio>
+                        <div class="sources-section">
+                            <h4>Audio:</h4>
+                            <audio controls class="audio-player">
+                                <source src="${data.audio_url}" type="audio/mpeg">
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+                    ` : ''}
+
+                    ${data.similar_pods && data.similar_pods.length > 0 ? `
+                        <div class="sources-section">
+                            <h4>Similar Research Pods:</h4>
+                            <div class="similar-pods">
+                                ${data.similar_pods.map(pod => `
+                                    <div class="similar-pod">
+                                        <div class="source-title">${pod.query}</div>
+                                        <div class="source-meta">Created: ${new Date(pod.created_at * 1000).toLocaleDateString()}</div>
+                                        ${pod.audio_url ? `
+                                            <audio controls class="audio-player">
+                                                <source src="${pod.audio_url}" type="audio/mpeg">
+                                                Your browser does not support the audio element.
+                                            </audio>
+                                        ` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
                     ` : ''}
                 `;
                 
                 document.getElementById('podDetails').innerHTML = details;
             } catch (error) {
                 console.error('Error fetching pod details:', error);
-                document.getElementById('podDetails').innerText = 'Error loading pod details';
+                document.getElementById('podDetails').innerHTML = `
+                    <div style="color: red; padding: 1rem; background: #fee; border-radius: 4px;">
+                        Error loading pod details: ${error.message}
+                    </div>
+                `;
             }
         }
 
@@ -192,20 +308,21 @@ Message: ${message || 'N/A'}`;
                 eventDiv.className = 'event';
                 try {
                     eventData = JSON.parse(event.data);
-                    // Update status display from event data
                     updateStatusDisplay(eventData.status, eventData.progress, eventData.message);
-                    eventDiv.innerText = `${new Date().toISOString()} - ${eventData.message || event.data}`;
+                    eventDiv.innerHTML = `
+                        <strong>${new Date().toLocaleTimeString()}</strong>: 
+                        ${eventData.message || event.data}
+                    `;
 
-                    // Check for completion
                     if (eventData.status === 'COMPLETED' || eventData.status === 'ERROR') {
                         console.log('Pod processing complete, fetching details...');
-                        eventSource.close(); // Close the stream
+                        eventSource.close();
                         eventSource = null;
                         fetchPodDetails(currentPodId);
                     }
                 } catch (e) {
                     console.error('Error parsing event data:', e);
-                    eventDiv.innerText = `${new Date().toISOString()} - ${event.data}`;
+                    eventDiv.innerText = `${new Date().toLocaleTimeString()} - ${event.data}`;
                 }
                 eventsDiv.insertBefore(eventDiv, eventsDiv.firstChild);
             };
@@ -216,7 +333,6 @@ Message: ${message || 'N/A'}`;
                     eventSource.close();
                     eventSource = null;
                 }
-                // Only reconnect if pod is still active and not completed
                 if (currentPodId && eventsUrl && eventData?.status !== 'COMPLETED' && eventData?.status !== 'ERROR') {
                     setTimeout(() => connectEventStream(eventsUrl), 5000);
                 }

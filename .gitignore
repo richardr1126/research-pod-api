@@ -88,3 +88,4 @@ env/
 venv/
 .env
 *.log
+node_modules/

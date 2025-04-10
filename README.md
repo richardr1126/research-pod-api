@@ -6,9 +6,10 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 - **Paper Processing**: Automatically scrapes arXiv papers and converts them to a format our AI can understand
 - **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat/Azure OpenAI and vector search
 - **Message Queue**: Uses Kafka to handle multiple papers at once without overloading
-- **Vector Search**: Uses Milvus Lite to store and find similar content
+- **Vector Search**: Uses pgvector to store transcripts and find similar research pods
 - **Database**: YugabyteDB for distributed SQL storage with high availability
 - **Storage**: Azure Blob Storage for audio file storage
+- **Smart Recommendations**: Automatically suggests similar research pods based on transcript content
 - **Deployment Options**: Can run locally or on our Kubernetes cluster
 
 ### Technical Stack
@@ -21,6 +22,8 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 - **Infrastructure**: Kubernetes configs with optional GPU support for TTS
 
 ## How It Works
+
+The system processes research queries by scraping relevant papers from arXiv, analyzing them using RAG (Retrieval-Augmented Generation), and generating audio summaries. It also maintains a vector database of all generated transcripts, enabling it to recommend similar research pods based on content similarity.
 
 ## System Architecture
 
@@ -105,11 +108,13 @@ sequenceDiagram
    - Manages async jobs (since paper processing takes time)
    - Validates input to prevent garbage requests
    - Stores research data in YugabyteDB
+   - Returns hydrated recommendations with audio playback
 
 2. **Research Consumer**
    - Does the heavy lifting of paper processing
    - Runs our RAG pipeline
-   - Manages the vector database
+   - Maintains vector embeddings of transcripts
+   - Finds similar research pods using MMR search
    - Stores results in YugabyteDB
    - Generates audio summaries using TTS service
 
@@ -136,7 +141,8 @@ Endpoints are currently deployed to:
 - Web API:
   - `https://api.richardr.dev/v1/api/pod/create`
   - `https://api.richardr.dev/v1/api/pod/status/{pod_id}`
-  - `https://api.richardr.dev/v1/api/pod/get/{pod_id}` (for full details, dont poll)
+  - `https://api.richardr.dev/v1/api/pod/get/{pod_id}` (for full details, cached)
+  - `https://api.richardr.dev/v1/api/pods` (paginated list, cached)
 - Kafka monitoring: `https://kafkaui.richardr.dev`
 - Event stream: `https://research-consumer-{0|1|2}.richardr.dev/v1/events/{pod_id}`
 
@@ -238,6 +244,14 @@ The scripts will:
 
 ## API Details
 
+### Timestamp Handling
+All timestamps in the API (`created_at` and `updated_at`) are returned as UTC seconds since epoch (January 1, 1970). When consuming these timestamps in a JavaScript frontend, multiply by 1000 to convert to milliseconds before creating a Date object:
+
+```javascript
+// Example of handling timestamps in frontend
+const date = new Date(timestamp * 1000);
+```
+
 ### Testing Flow
 
 1. Start a research job:
@@ -337,12 +351,11 @@ Get pod status:
 ```
 
 ### GET /v1/api/pod/get/{pod_id}
-Get full research pod details from database:
+Get full research pod details from database (results are cached in Redis):
 ```json
 {
   "id": "uuid-string",
   "query": "original query",
-  "summary": "Generated summary text",
   "transcript": "TTS-optimized text",
   "audio_url": "https://researchpod.blob.core.windows.net/researchpod-audio/{pod_id}/audio.mp3",
   "sources_arxiv": ["paper sources"],
@@ -351,9 +364,48 @@ Get full research pod details from database:
   "error_message": "Any error details",
   "progress": 0-100,
   "consumer_id": "consumer identifier",
-  "created_at": "ISO timestamp",
-  "updated_at": "ISO timestamp"
+  "created_at": 1712577600,  // UTC seconds since epoch
+  "updated_at": 1712577600,  // UTC seconds since epoch
+  "similar_pods": [
+    {
+      "id": "uuid-string",
+      "query": "similar query",
+      "audio_url": "audio url for similar pod",
+      "created_at": 1712577600  // UTC seconds since epoch
+    }
+  ]
 }
+```
+
+The `similar_pods` array contains up to 5 related research pods, determined by semantic similarity between transcripts using pgvector's Maximum Marginal Relevance (MMR) search. This helps reduce redundancy in recommendations while maintaining diversity.
+
+### GET /v1/api/pods
+Get a paginated list of research pods. Results are cached in Redis.
+
+Query Parameters:
+- `limit` (integer, optional, default: 10, max: 100): Number of pods to return.
+- `offset` (integer, optional, default: 0): Number of pods to skip.
+
+Returns an array of pod objects similar to the `/v1/api/pod/get/{pod_id}` response, but potentially less detailed depending on the `to_dict()` implementation used. Example:
+```json
+[
+  {
+    "id": "uuid-string-1",
+    "query": "query 1",
+    "status": "COMPLETED",
+    "created_at": "ISO timestamp",
+    "updated_at": "ISO timestamp"
+    // ... other fields as defined in ResearchPods.to_dict() ...
+  },
+  {
+    "id": "uuid-string-2",
+    "query": "query 2",
+    "status": "PROCESSING",
+    "created_at": "ISO timestamp",
+    "updated_at": "ISO timestamp"
+    // ... other fields ...
+  }
+]
 ```
 
 ### GET /health
@@ -366,7 +418,7 @@ Returns:
   "redis": "healthy|unhealthy",
   "kafka_producer": "healthy|unhealthy",
   "database": "healthy|unhealthy",
-  "timestamp": "ISO timestamp"
+  "timestamp": 1712577600  // UTC seconds since epoch
 }
 ```
 

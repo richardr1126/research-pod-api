@@ -27,9 +27,18 @@ embeddings = AzureOpenAIEmbeddings(
 #     model="text-embedding-3-large",
 # )
 
+# Create separate vector stores for documents and transcripts
 pgvector = PGVector(
     embeddings=embeddings,
-    collection_name=f"research-{uuid7()}",
+    collection_name=f"research-docs-{uuid7()}",
+    connection=os.getenv("SQLALCHEMY_DATABASE_URI"),
+    use_jsonb=True,
+    create_extension=False
+)
+
+transcript_store = PGVector(
+    embeddings=embeddings,
+    collection_name="research-transcripts",  # Fixed collection name for transcripts
     connection=os.getenv("SQLALCHEMY_DATABASE_URI"),
     use_jsonb=True,
     create_extension=False
@@ -73,10 +82,67 @@ def clear():
     Clear all documents from the vector store.
     """
     try:
-        # Delete the collection
+        # Only delete the documents collection, keep transcripts
         pgvector.delete_collection()
-        
-        # Recreate the collection
         pgvector.create_collection()
     except Exception as e:
         raise  # Re-raise the exception to make sure caller knows about the failure
+
+def add_transcript(transcript: str, pod_id: str):
+    """
+    Add a research pod transcript to the permanent vector store.
+    
+    Args:
+        transcript: The transcript text to embed
+        pod_id: The ID of the research pod
+    """
+    try:
+        # Create metadata
+        metadata = {
+            "doc_type": "transcript",
+            "pod_id": pod_id
+        }
+        
+        # Split the transcript text into chunks
+        chunks = text_splitter.create_documents(
+            texts=[transcript],
+            metadatas=[metadata]
+        )
+        
+        # Add chunks to transcript store
+        transcript_store.add_documents(chunks)
+        return True
+    except Exception as e:
+        print(f"Error adding transcript: {e}")
+        return False
+
+def get_similar_transcripts(pod_id: str, text: str, k: int = 5) -> List[str]:
+    """
+    Find similar research pods based on transcript content.
+    
+    Args:
+        text: Text to find similar transcripts for
+        k: Number of similar transcripts to return
+        
+    Returns:
+        List of pod IDs
+    """
+    try:
+        # Search for similar transcripts
+        docs = transcript_store.max_marginal_relevance_search(text, k=k)
+        
+        # Extract unique pod IDs
+        seen_pods = set()
+        recommendations = []
+        
+        for doc in docs:
+            similar_pod_id = doc.metadata.get("pod_id")
+            # Only include unique pods
+            if similar_pod_id and similar_pod_id not in seen_pods and similar_pod_id != pod_id:
+                seen_pods.add(similar_pod_id)
+                recommendations.append(similar_pod_id)
+        
+        return recommendations[:k]
+    except Exception as e:
+        print(f"Error getting similar transcripts: {e}")
+        return []

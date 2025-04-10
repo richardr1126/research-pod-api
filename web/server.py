@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
 import multiprocessing
@@ -10,6 +10,7 @@ from kafka.errors import KafkaError
 from dotenv import load_dotenv
 import redis
 from datetime import datetime, timezone
+from prometheus_flask_exporter import PrometheusMetrics
 from db import db, ResearchPods
 
 # Configure logging
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Initialize Flask app
-server = Flask(__name__)
+server = Flask(__name__, static_folder='ui/dist', static_url_path='/')
 CORS(server)
 
 # Database Configuration
@@ -29,6 +30,10 @@ server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy
 db.init_app(server)
+
+# Initialize Prometheus metrics
+metrics = PrometheusMetrics(server, defaults_prefix="web")
+metrics.info('web_info', 'Application info', version='0.0.1')
 
 def init_db():
     with server.app_context():
@@ -52,9 +57,9 @@ try:
         value_serializer=lambda v: json.dumps(v).encode('utf-8'),
         client_id=client_id,
         max_in_flight_requests_per_connection=1,  # Ensure ordering
-        #security_protocol='SSL',
-        #ssl_check_hostname=True,
-        #ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+        # security_protocol='SSL',
+        # ssl_check_hostname=True,
+        # ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
     )
     logger.info(f"Successfully connected to Kafka at {os.getenv('KAFKA_BOOTSTRAP_SERVERS')}")
 except Exception as e:
@@ -173,13 +178,75 @@ def get_status(pod_id):
     
 @server.route('/v1/api/pod/get/<pod_id>', methods=['GET'])
 def get_pod(pod_id):
-    """Get research pod details from database."""
-    research_pod = db.get_or_404(ResearchPods, pod_id)
+    """Get research pod details from database, with Redis caching."""
+    try:
+        # Create cache key
+        cache_key = f"pod:{pod_id}:details"
+
+        # Check cache first
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            logger.info(f"Cache hit for pod details: {cache_key}")
+            return jsonify(json.loads(cached_data)), 200
+
+        logger.info(f"Cache miss for pod details: {cache_key}. Querying database.")
+        # If not in cache, query the database
+        research_pod = db.get_or_404(ResearchPods, pod_id)
+        
+        # Convert the ResearchPod to dictionary format
+        response = research_pod.to_dict()
+
+        # Cache the result in Redis (e.g., for 300 seconds)
+        redis_client.setex(cache_key, 300, json.dumps(response))
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        # Note: db.get_or_404 handles the 404 case internally
+        logger.error(f"Error getting pod details: {str(e)}")
+        # Avoid caching errors
+        return jsonify({"error": "An internal error occurred. Please try again later."}), 500
     
-    # Convert the ResearchPod to dictionary format
-    response = research_pod.to_dict()
-    
-    return jsonify(response), 200
+@server.route('/v1/api/pods', methods=['GET'])
+def get_pods():
+    """Get a paginated list of research pods with Redis caching."""
+    try:
+        # Get pagination parameters
+        limit = request.args.get('limit', default=10, type=int)
+        offset = request.args.get('offset', default=0, type=int)
+
+        # Basic validation
+        if limit <= 0 or offset < 0:
+            return jsonify({"error": "Invalid limit or offset"}), 400
+        
+        # Limit the maximum number of pods per request
+        limit = min(limit, 100) # Set a reasonable max limit
+
+        # Create cache key
+        cache_key = f"pods:limit={limit}:offset={offset}"
+
+        # Check cache first
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            logger.info(f"Cache hit for key: {cache_key}")
+            return jsonify(json.loads(cached_data)), 200
+
+        logger.info(f"Cache miss for key: {cache_key}. Querying database.")
+        # Query database with pagination
+        pods_query = db.session.query(ResearchPods).order_by(ResearchPods.created_at.desc()).limit(limit).offset(offset)
+        pods = pods_query.all()
+
+        # Convert pods to list of dictionaries
+        pods_list = [pod.to_short_dict() for pod in pods]
+
+        # Cache the result in Redis (e.g., for 60 seconds)
+        redis_client.setex(cache_key, 60, json.dumps(pods_list))
+
+        return jsonify(pods_list), 200
+
+    except Exception as e:
+        logger.error(f"Error getting pods list: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # Health check endpoint
 @server.route('/health')
@@ -190,7 +257,7 @@ def health():
         "redis": "healthy",
         "kafka_producer": "healthy",
         "database": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": int(datetime.now(timezone.utc).timestamp())
     }
     
     # Check Redis connection
@@ -217,3 +284,19 @@ def health():
     
     http_status = 200 if status["status"] == "healthy" else 503
     return jsonify(status), http_status
+
+# --- Routes for React App ---
+@server.route('/', defaults={'path': ''})
+@server.route('/create', defaults={'path': 'create'})  # Add defaults parameter for /create
+@server.route('/<path:path>')
+def serve_react_app(path):
+    # First check if the path is trying to access a static file
+    if path != "" and os.path.exists(os.path.join(server.static_folder, path)):
+        return send_from_directory(server.static_folder, path)
+        
+    # For all other routes, serve index.html to let React Router handle routing
+    if os.path.exists(os.path.join(server.static_folder, 'index.html')):
+        return send_from_directory(server.static_folder, 'index.html')
+    else:
+        logger.error(f"React app index.html not found in: {server.static_folder}")
+        return jsonify({"error": "React app index.html not found"}), 404

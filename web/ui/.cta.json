@@ -1,0 +1,13 @@
+{
+  "framework": "react",
+  "projectName": "ui",
+  "mode": "file-router",
+  "typescript": true,
+  "tailwind": true,
+  "packageManager": "npm",
+  "toolchain": "eslint+prettier",
+  "variableValues": {},
+  "git": false,
+  "version": 1,
+  "existingAddOns": []
+}
