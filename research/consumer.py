@@ -11,10 +11,11 @@ from flask_cors import CORS
 from prometheus_flask_exporter import PrometheusMetrics
 from dotenv import load_dotenv
 from threading import Thread
-from queue import Queue
 from datetime import datetime, timezone
 from azure.storage.blob import BlobServiceClient
-from kafka import KafkaConsumer, KafkaProducer
+from kafka import KafkaConsumer, KafkaProducer, TopicPartition, KafkaAdminClient
+from kafka.admin import NewTopic
+from kafka.errors import TopicAlreadyExistsError, UnknownTopicOrPartitionError
 import redis
 
 # Module imports
@@ -48,9 +49,6 @@ blob_service_client = BlobServiceClient.from_connection_string(
 )
 blob_storage_container = blob_service_client.get_container_client('researchpod-audio')
 
-# Queue for SSE updates
-progress_queue = Queue()
-
 # Initialize Kafka components
 consumer = KafkaConsumer( # Consumer for scrape requests
     'scrape-requests',
@@ -75,6 +73,40 @@ producer = KafkaProducer( # Producer to return research results
     #ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
 )
 
+# Initialize Kafka Admin Client
+admin_client = KafkaAdminClient(
+    bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
+    # security_protocol='SSL',
+    # ssl_check_hostname=True,
+    # ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+)
+
+def cleanup_pod_topic(pod_id: str):
+    """Delete the Kafka topic for a pod's updates after it's no longer needed."""
+    topic = f'pod-updates-{pod_id}'
+    try:
+        admin_client.delete_topics([topic])
+        logger.info(f"Deleted Kafka topic: {topic}")
+    except UnknownTopicOrPartitionError:
+        logger.debug(f"Topic {topic} doesn't exist or was already deleted")
+    except Exception as e:
+        logger.error(f"Error deleting Kafka topic {topic}: {str(e)}")
+
+def create_sse_consumer(pod_id: str) -> KafkaConsumer:
+    """Create a new Kafka consumer for SSE updates for a specific pod."""
+    topic = f'pod-updates-{pod_id}'
+    consumer = KafkaConsumer(
+        bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
+        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+        auto_offset_reset='latest',
+        group_id=f'sse-{pod_id}-{int(time.time())}',  # Unique group ID per connection
+        security_protocol='SSL',
+        ssl_check_hostname=True,
+        ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+    )
+    consumer.assign([TopicPartition(topic, 0)])  # Assign to partition 0 of the topic
+    return consumer
+
 # Initialize Redis client
 redis_client = redis.Redis.from_url(
     os.getenv('REDIS_URL', 'redis://localhost:6379'),
@@ -90,25 +122,26 @@ hostname = socket.gethostname()
 consumer_id = hostname.split('-')[-1] if '-' in hostname else '0'
 
 def send_progress_update(pod_id: str, status: str, progress: int, message: str = None):
-    """Send a progress update to both Redis and SSE stream."""
+    """Send a progress update to both Redis and Kafka stream."""
     # Update Redis
     update_data = {
         "status": status,
         "progress": progress,
         "consumer": consumer_id,
-        "message": message or f"Processing {status.lower()} at {progress}%"  # Always include a message
+        "message": message or f"Processing {status.lower()} at {progress}%"
     }
     
     redis_client.hset(f"pod:{pod_id}", mapping=update_data)
     
-    # Send to SSE stream
+    # Send to Kafka SSE topic
     update = {
         "pod_id": pod_id,
         "status": status,
         "progress": progress,
-        "message": update_data["message"]  # Always include message in SSE updates too
+        "message": update_data["message"]
     }
-    progress_queue.put(update)
+    producer.send(f'pod-updates-{pod_id}', value=update)
+    producer.flush()
 
 def process_message(message):
     """Process a Kafka message, performing scraping and RAG."""
@@ -255,21 +288,26 @@ def health():
 def events(pod_id):
     """SSE endpoint for pod progress updates."""
     def generate():
-        while True:
-            # Get progress update from queue
-            try:
-                update = progress_queue.get(timeout=30)  # 30 second timeout
-                if update["pod_id"] == pod_id:
-                    yield f"data: {json.dumps(update)}\n\n"
-                    # If pod is complete or errored, stop streaming
-                    if update["status"] in ["COMPLETED", "ERROR"]:
-                        break
+        sse_consumer = create_sse_consumer(pod_id)
+        try:
+            while True:
+                # Get messages with 30 second timeout
+                messages = sse_consumer.poll(timeout_ms=30000)
+                if messages:
+                    for tp, msgs in messages.items():
+                        for msg in msgs:
+                            update = msg.value
+                            yield f"data: {json.dumps(update)}\n\n"
+                            # If pod is complete or errored, stop streaming
+                            if update["status"] in ["COMPLETED", "ERROR"]:
+                                return
                 else:
-                    # Put back updates for other pods
-                    progress_queue.put(update)
-            except Exception:
-                # Send keepalive comment every 30 seconds
-                yield ": keepalive\n\n"
+                    # Send keepalive comment
+                    yield ": keepalive\n\n"
+        finally:
+            # Always close the consumer and clean up the topic when done
+            sse_consumer.close()
+            cleanup_pod_topic(pod_id)
     
     return Response(generate(), mimetype='text/event-stream')
 

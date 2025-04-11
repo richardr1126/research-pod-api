@@ -28,11 +28,11 @@ export GCP_ZONE=us-west1-b
 export GCP_MACHINE_TYPE=e2-standard-2  # 2 vCPUs, 8GB RAM
 # GPU configuration
 export GCP_DISK_TYPE=pd-ssd
-export GCP_DISK_SIZE=75
+export GCP_DISK_SIZE=50
 export GCP_GPU_POOL_NAME=gpu-t4-pool
 export GCP_GPU_MACHINE_TYPE=n1-standard-4
 export GCP_GPU_DISK_TYPE=pd-balanced
-export GCP_GPU_DISK_SIZE=75
+export GCP_GPU_DISK_SIZE=50
 export GCP_GPU_TYPE=nvidia-tesla-t4
 export GCP_GPU_COUNT=1
 export GCP_GPU_NODE_COUNT=1

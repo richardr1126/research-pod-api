@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def search_duckduckgo(keywords_groups: List[List[str]], total_limit: int = 6) -> List[Dict[str, Any]]:
     """
-    Search DuckDuckGo for relevant web pages using keyword groups.
+    Search DuckDuckGo for relevant web pages using interleaved keywords from groups.
     
     Args:
         keywords_groups: List of keyword groups from process_search_query
@@ -27,52 +27,52 @@ def search_duckduckgo(keywords_groups: List[List[str]], total_limit: int = 6) ->
     results = []
     try:
         with DDGS() as ddgs:
-            # Calculate results per group to stay within total limit
-            num_groups = len(keywords_groups)
-            results_per_group = total_limit // num_groups if num_groups > 0 else total_limit
+            # Interleave keywords from different groups
+            flattened_keywords = []
+            max_group_length = max(len(group) for group in keywords_groups)
             
-            # Process each keyword group
-            for keyword_group in keywords_groups:
-                if len(results) >= total_limit:
+            for i in range(max_group_length):
+                for group in keywords_groups:
+                    if i < len(group):
+                        flattened_keywords.append(group[i])
+                        if len(flattened_keywords) >= 7:  # Take only first 7 keywords
+                            break
+                if len(flattened_keywords) >= 7:
                     break
+            
+            # Join first 7 keywords with OR
+            search_query = " OR ".join(flattened_keywords[:7])
+            logger.info(f"Searching DuckDuckGo with interleaved keywords: {search_query}")
+            
+            # Use text search with specific parameters
+            ddg_results = list(ddgs.text(
+                keywords=search_query,
+                region="us-en",
+                safesearch="moderate",
+                backend="auto",
+                max_results=total_limit
+            ))
+            
+            for result in ddg_results:
+                # Extract fields from the text search result
+                title = result.get("title")
+                body = result.get("body")
+                href = result.get("href")
+                
+                if not href:
+                    logger.warning(f"No href found in result: {result}")
+                    continue
                     
-                # Join keywords with OR for broader search
-                search_query = " OR ".join(keyword_group)
-                logger.info(f"Searching DuckDuckGo with keywords: {search_query}")
-                
-                # Use text search with specific parameters
-                ddg_results = list(ddgs.text(
-                    keywords=search_query,
-                    region="us-en",
-                    safesearch="moderate",
-                    backend="auto",
-                    max_results=results_per_group
-                ))
-                
-                # Only take enough results to stay under total_limit
-                remaining = total_limit - len(results)
-                ddg_results = ddg_results[:remaining]
-                
-                for result in ddg_results:
-                    # Extract fields from the text search result
-                    title = result.get("title")
-                    body = result.get("body")
-                    href = result.get("href")
-                    
-                    if not href:
-                        logger.warning(f"No href found in result: {result}")
-                        continue
-                        
-                    # Add keywords used for this result
-                    results.append({
-                        "title": title or "",
-                        "url": href,
-                        "snippet": body or "",
-                        "date": result.get("date", ""),
-                        "keywords_used": keyword_group
-                    })
-                
-        logger.info(f"Found {len(results)} total results from DuckDuckGo across all keyword groups (limited to {total_limit})")
+                # Add keywords used for this result
+                results.append({
+                    "title": title or "",
+                    "url": href,
+                    "snippet": body or "",
+                    "date": result.get("date", ""),
+                    "keywords_used": flattened_keywords[:7]
+                })
+            
+        logger.info(f"Found {len(results)} total results from DuckDuckGo using interleaved keywords (limited to {total_limit})")
         return results
     except Exception as e:
         logger.error(f"Error searching DuckDuckGo: {str(e)}", exc_info=True)

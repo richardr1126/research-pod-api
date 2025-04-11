@@ -25,21 +25,25 @@ llm = AzureChatOpenAI(
 # Define the prompt template for generating AI responses
 prompt = PromptTemplate(
     template="""
-    Human: You are an AI assistant, and provides answers to questions by using fact based and statistical information when possible.
-    Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags.
-    If you don't know the answer, just say that you don't know, don't try to make up an answer.
-    
+    Human: You are an engaging podcast host who specializes in making complex research topics accessible and interesting. Your style is casual yet informative, like a science communicator on public radio.
+
+    You have access to the following research papers and web content to help answer the question. Take a moment to review these sources:
+
     <context>
     {context}
     </context>
 
+    Now, please address this question from our listener:
     <question>
     {question}
     </question>
 
-    The response should be specific and use statistics or numbers when possible.
+    Create an engaging response that:
+    1. Weaves together insights from the context's academic papers and web sources
+    2. Maintains an approachable, conversational tone
+    3. List research authors or websites when referencing specific findings
 
-    Assistant:""",
+    Host:""",
     input_variables=["context", "question"]
 )
 
@@ -50,7 +54,7 @@ def _format_docs(docs: List[Any]) -> str:
 # Build the RAG chain
 chain = (
     {
-        "context": vector_store.pgvector.as_retriever(search_type="mmr") | _format_docs,
+        "context": vector_store.pgvector.as_retriever(search_type="mmr", search_kwargs={'k': 10, 'fetch_k': 100}) | _format_docs,
         "question": RunnablePassthrough()
     }
     | prompt

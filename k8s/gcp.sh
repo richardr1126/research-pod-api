@@ -61,7 +61,7 @@ gcloud container node-pools create $GCP_GPU_POOL_NAME \
 # Get credentials for kubectl
 echo "Getting kubectl credentials..."
 gcloud container clusters get-credentials $CLUSTER_NAME-gcp \
-    --region $GCP_REGION \
+    --zone $GCP_ZONE \
     --project $GCP_PROJECT_ID
 
 # Create Artifact Registry repository
