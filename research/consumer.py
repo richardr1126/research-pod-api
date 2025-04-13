@@ -23,8 +23,8 @@ from scraper.scrape import scrape_arxiv
 from scraper.web_scrape import search_and_crawl
 from rag import rag_chain, vector_store
 from speech.tts import TextToSpeechClient
-from .db import db, ResearchPods
-from .utils import cleanup_pod_topic, create_sse_consumer, send_progress_update
+from db import db, ResearchPods
+from utils import cleanup_pod_topic, create_sse_consumer, send_progress_update
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
