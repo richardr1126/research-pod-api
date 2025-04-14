@@ -24,7 +24,7 @@ export AZ_GPU_TAINTS="sku=gpu:NoSchedule,kubernetes.azure.com/scalesetpriority=s
 # Google Cloud specific
 export GCP_PROJECT_ID=bda-project-455622
 export GCP_REGION=us-west1
-export GCP_ZONE=us-west1-b
+export GCP_ZONE=us-west1-a
 export GCP_MACHINE_TYPE=e2-standard-2  # 2 vCPUs, 8GB RAM
 # GPU configuration
 export GCP_DISK_TYPE=pd-ssd

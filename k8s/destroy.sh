@@ -18,7 +18,7 @@ destroy_kubectl() {
     helm uninstall kafka kafka-ui research-consumer web-api ingress-nginx redis --ignore-not-found
     helm delete yugabyte -n yugabyte
     kubectl delete pvc --all --force
-    kubectl delete namespaces yugabyte cert-manager
+    kubectl delete namespaces yugabyte cert-manager metrics
 
     echo "Kubectl resources destruction completed!"
 }
