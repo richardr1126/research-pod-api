@@ -186,8 +186,7 @@ fi
 # Create Kubernetes secret from environment variables
 echo "Creating Kubernetes secrets..."
 kubectl create secret generic api-secrets \
-  --from-literal=DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY \
-  --from-literal=OPENAI_API_KEY=$OPENAI_API_KEY \
+  --from-literal=GOOGLE_API_KEY=$GOOGLE_API_KEY \
   --from-literal=AZURE_OPENAI_KEY=$AZURE_OPENAI_KEY \
   --from-literal=AZURE_OPENAI_ENDPOINT=$AZURE_OPENAI_ENDPOINT \
   --from-literal=SQLALCHEMY_DATABASE_URI=$SQLALCHEMY_DATABASE_URI \

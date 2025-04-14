@@ -6,21 +6,21 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import AzureChatOpenAI
-from langchain_deepseek import ChatDeepSeek
+from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import List, Any
 from . import vector_store
 
 # Getting ready to fully to switch to Azure AI, contact me for keys (deployed like this on k8s)
-llm = AzureChatOpenAI(
-    openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    azure_deployment='gpt-4o',
-    api_version="2025-02-01-preview",
-)
-# llm = ChatDeepSeek(
-#     model='deepseek-chat',
-#     api_key=os.getenv("DEEPSEEK_API_KEY")
+# llm = AzureChatOpenAI(
+#     openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
+#     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+#     azure_deployment='gpt-4o',
+#     api_version="2025-02-01-preview",
 # )
+llm = ChatGoogleGenerativeAI(
+    model='gemini-2.5-pro-preview-03-25',
+    api_key=os.getenv("GOOGLE_API_KEY")
+)
 
 # Define the prompt template for generating AI responses
 prompt = PromptTemplate(
