@@ -138,9 +138,6 @@ if [ "$CLEAR" = true ]; then
   kubectl delete crd issuers.cert-manager.io --ignore-not-found
   kubectl delete crd orders.acme.cert-manager.io --ignore-not-found
 
-  echo "Deleting YugabyteDB CRDs..."
-  kubectl delete crd ybclusters.yugabyte.com --ignore-not-found
-
   echo "Deleting namespaces and persistent volume claims..."
   kubectl delete namespaces yugabyte cert-manager --wait --ignore-not-found
   kubectl delete pvc --all --force
@@ -371,15 +368,6 @@ echo "Adding vector extension to YugabyteDB..."
 kubectl exec --namespace yugabyte -it yb-tserver-0 -- /bin/bash -c 'export PGPASSWORD=research-pod-password; /home/yugabyte/bin/ysqlsh -h yb-tserver-0.yb-tservers.yugabyte -U researchpod -d researchpod -c "CREATE EXTENSION IF NOT EXISTS vector;"' || true
 
 # Install custom charts with appropriate settings
-echo "Installing web-api chart..."
-helm upgrade --install web-api ./web-api \
-  --set image.repository=${WEB_API_IMAGE} \
-  --wait
-
-echo "Installing research-consumer charts..."
-helm upgrade --install research-consumer ./research-consumer \
-  --set image.repository=${CONSUMER_IMAGE} \
-  --wait
 
 if [ "$GPU" = true ]; then
   echo "Installing GPU Operator..."
@@ -412,16 +400,27 @@ if [ "$GPU" = true ]; then
   if [ "$AZURE" = true ]; then
     helm upgrade --install kokoro-fastapi ./kokoro-fastapi \
       -f ./kokoro-fastapi/aks-values.yaml \
-      --wait
+      --wait \
+      --timeout 15m
   elif [ "$GCP" = true ]; then
     helm upgrade --install kokoro-fastapi ./kokoro-fastapi \
       -f ./kokoro-fastapi/gke-values.yaml \
-      --wait
+      --wait \
+      --timeout 15m
   else
     echo "Not installing Kokoro on DigitalOcean."
     exit 1
   fi
 fi
+
+echo "Installing web-api chart..."
+helm upgrade --install web-api ./web-api \
+  --set image.repository=${WEB_API_IMAGE} \
+  --wait
+
+echo "Installing research-consumer charts..."
+helm upgrade --install research-consumer ./research-consumer \
+  --set image.repository=${CONSUMER_IMAGE} \
 
 echo "Grafana admin password:"
 kubectl --namespace monitoring get secrets prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo

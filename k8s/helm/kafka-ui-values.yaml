@@ -12,17 +12,17 @@ service:
 
 ingress:
   enabled: true
-  className: "nginx"
+  ingressClassName: "nginx"
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
     external-dns.alpha.kubernetes.io/hostname: kafkaui.richardr.dev
-    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
   path: "/"
   pathType: "Prefix"
   host: "kafkaui.richardr.dev"
-  tls:
-    enabled: true
-    secretName: kafka-ui-tls
+  # tls:
+  #   enabled: true
+  #   secretName: kafka-ui-tls
 
 volumes:
   - name: kafka-tls
