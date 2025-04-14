@@ -95,17 +95,34 @@ def cleanup_pod_topic(pod_id: str):
 def create_sse_consumer(pod_id: str) -> KafkaConsumer:
     """Create a new Kafka consumer for SSE updates for a specific pod."""
     topic = f'pod-updates-{pod_id}'
-    consumer = KafkaConsumer(
-        bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
-        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-        auto_offset_reset='latest',
-        group_id=f'sse-{pod_id}-{int(time.time())}',  # Unique group ID per connection
-        security_protocol='SSL',
-        ssl_check_hostname=True,
-        ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
-    )
-    consumer.assign([TopicPartition(topic, 0)])  # Assign to partition 0 of the topic
-    return consumer
+    try:
+        # Create topic if it doesn't exist
+        try:
+            admin_client.create_topics([
+                NewTopic(
+                    name=topic,
+                    num_partitions=1,
+                    replication_factor=1
+                )
+            ])
+        except TopicAlreadyExistsError:
+            pass
+
+        consumer = KafkaConsumer(
+            bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
+            value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+            auto_offset_reset='earliest',  # Changed from 'latest' to not miss messages
+            group_id=None,  # Remove group management to prevent rebalancing issues
+            consumer_timeout_ms=3000,  # 3 second timeout
+            security_protocol='SSL',
+            ssl_check_hostname=True,
+            ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+        )
+        consumer.assign([TopicPartition(topic, 0)])
+        return consumer
+    except Exception as e:
+        logger.error(f"Error creating SSE consumer: {str(e)}")
+        raise
 
 # Initialize Redis client
 redis_client = redis.Redis.from_url(
@@ -288,28 +305,54 @@ def health():
 def events(pod_id):
     """SSE endpoint for pod progress updates."""
     def generate():
-        sse_consumer = create_sse_consumer(pod_id)
+        sse_consumer = None
         try:
+            sse_consumer = create_sse_consumer(pod_id)
+            
+            # First check Redis for current status
+            current_status = redis_client.hgetall(f"pod:{pod_id}")
+            if current_status:
+                yield f"data: {json.dumps(current_status)}\n\n"
+            
+            last_keepalive = time.time()
+            keepalive_interval = 15  # Send keepalive every 15 seconds
+            
             while True:
-                # Get messages with 30 second timeout
-                messages = sse_consumer.poll(timeout_ms=30000)
-                if messages:
-                    for tp, msgs in messages.items():
-                        for msg in msgs:
-                            update = msg.value
-                            yield f"data: {json.dumps(update)}\n\n"
-                            # If pod is complete or errored, stop streaming
-                            if update["status"] in ["COMPLETED", "ERROR"]:
+                try:
+                    # Check for new messages
+                    for message in sse_consumer:
+                        if message and message.value:
+                            yield f"data: {json.dumps(message.value)}\n\n"
+                            if message.value.get("status") in ["COMPLETED", "ERROR"]:
                                 return
-                else:
-                    # Send keepalive comment
-                    yield ": keepalive\n\n"
+                        
+                    # Send keepalive if needed
+                    current_time = time.time()
+                    if current_time - last_keepalive >= keepalive_interval:
+                        yield ": keepalive\n\n"
+                        last_keepalive = current_time
+                        
+                except Exception as e:
+                    logger.error(f"Error reading SSE message: {str(e)}")
+                    yield f"data: {json.dumps({'status': 'ERROR', 'message': str(e)})}\n\n"
+                    return
+
+        except Exception as e:
+            logger.error(f"SSE stream error: {str(e)}")
+            yield f"data: {json.dumps({'status': 'ERROR', 'message': 'Stream error'})}\n\n"
+            
         finally:
-            # Always close the consumer and clean up the topic when done
-            sse_consumer.close()
-            cleanup_pod_topic(pod_id)
-    
-    return Response(generate(), mimetype='text/event-stream')
+            if sse_consumer:
+                try:
+                    sse_consumer.close()
+                    cleanup_pod_topic(pod_id)
+                except Exception as e:
+                    logger.error(f"Error cleaning up SSE consumer: {str(e)}")
+
+    response = Response(generate(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 def run_consumer():
     """Run the Kafka consumer loop."""

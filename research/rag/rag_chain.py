@@ -11,16 +11,16 @@ from typing import List, Any
 from . import vector_store
 
 # Getting ready to fully to switch to Azure AI, contact me for keys (deployed like this on k8s)
-# llm = AzureChatOpenAI(
-#     openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
-#     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-#     azure_deployment='gpt-4o',
-#     api_version="2025-02-01-preview",
-# )
-llm = ChatGoogleGenerativeAI(
-    model='gemini-2.5-pro-preview-03-25',
-    api_key=os.getenv("GOOGLE_API_KEY")
+llm = AzureChatOpenAI(
+    openai_api_key=os.getenv("AZURE_OPENAI_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    azure_deployment='gpt-4o',
+    api_version="2025-02-01-preview",
 )
+# llm = ChatGoogleGenerativeAI(
+#     model='gemini-2.5-pro-preview-03-25',
+#     api_key=os.getenv("GOOGLE_API_KEY")
+# )
 
 # Define the prompt template for generating AI responses
 prompt = PromptTemplate(
@@ -40,7 +40,7 @@ prompt = PromptTemplate(
 
     Create an engaging response that:
     1. Weaves together insights from the context's academic papers and web sources
-    2. Maintains an approachable, conversational tone
+    2. Maintains an approachable, conversational tone, which flows naturally without using headings or bullet points
     3. List research authors or websites when referencing specific findings
 
     Host:""",
