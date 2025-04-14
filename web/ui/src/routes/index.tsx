@@ -47,10 +47,6 @@ function App() {
               >
                 <PodCard
                   pod={pod}
-                  onClick={() => {
-                    // TODO: Navigate to pod details page
-                    console.log('Navigate to pod:', pod.id)
-                  }}
                 />
               </div>
             ))}
