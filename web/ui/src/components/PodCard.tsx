@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { SourceTag } from './SourceTag'
+import { Link } from '@tanstack/react-router'
 
 export interface Pod {
   id: string
@@ -16,10 +17,9 @@ export interface Pod {
 
 interface PodCardProps {
   pod: Pod
-  onClick?: () => void
 }
 
-export const PodCard: FC<PodCardProps> = ({ pod, onClick }) => {
+export const PodCard: FC<PodCardProps> = ({ pod }) => {
   const statusColors = {
     QUEUED: 'badge-neutral',
     ASSIGNED: 'badge-info',
@@ -32,7 +32,6 @@ export const PodCard: FC<PodCardProps> = ({ pod, onClick }) => {
   return (
     <div
       className="card bg-base-100 shadow-xl cursor-pointer hover:shadow-2xl transition-shadow"
-      onClick={onClick}
     >
       <div className="card-body py-4 px-5">
         <div className="card-title flex justify-between">
@@ -44,12 +43,20 @@ export const PodCard: FC<PodCardProps> = ({ pod, onClick }) => {
           )}
         </div>
 
-        {pod.progress !== undefined && pod.progress < 100 && pod.status !== 'COMPLETED' && (
+        { pod.progress !== undefined && pod.progress < 100 && pod.status !== 'COMPLETED' ? (
           <progress
             className="progress progress-primary w-full"
             value={pod.progress}
             max="100"
           />
+        ) : (
+          <Link
+            to={'/details/$podId'}
+            params = {{ podId: pod.id }}
+            className="btn btn-primary btn-sm mt-2"
+            >
+            View Details
+          </Link>
         )}
 
         <div className="flex justify-between text-sm text-base-content/70">

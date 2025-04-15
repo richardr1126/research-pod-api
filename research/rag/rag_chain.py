@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import AzureChatOpenAI
-from langchain_deepseek import ChatDeepSeek
+from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import List, Any
 from . import vector_store
 
@@ -17,9 +17,9 @@ llm = AzureChatOpenAI(
     azure_deployment='gpt-4o',
     api_version="2025-02-01-preview",
 )
-# llm = ChatDeepSeek(
-#     model='deepseek-chat',
-#     api_key=os.getenv("DEEPSEEK_API_KEY")
+# llm = ChatGoogleGenerativeAI(
+#     model='gemini-2.5-pro-preview-03-25',
+#     api_key=os.getenv("GOOGLE_API_KEY")
 # )
 
 # Define the prompt template for generating AI responses
@@ -40,7 +40,7 @@ prompt = PromptTemplate(
 
     Create an engaging response that:
     1. Weaves together insights from the context's academic papers and web sources
-    2. Maintains an approachable, conversational tone
+    2. Maintains an approachable, conversational tone, which flows naturally without using headings or bullet points
     3. List research authors or websites when referencing specific findings
 
     Host:""",
