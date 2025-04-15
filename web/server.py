@@ -286,15 +286,11 @@ def health():
     return jsonify(status), http_status
 
 # --- Routes for React App ---
-@server.route('/', defaults={'path': ''})
-@server.route('/create', defaults={'path': 'create'})  # Add defaults parameter for /create
-@server.route('/<path:path>')
-def serve_react_app(path):
-    # First check if the path is trying to access a static file
-    if path != "" and os.path.exists(os.path.join(server.static_folder, path)):
-        return send_from_directory(server.static_folder, path)
-        
-    # For all other routes, serve index.html to let React Router handle routing
+@server.route('/')
+@server.route('/create')  # Add defaults parameter for /create
+@server.route('/pod/<string:pod_id>')  # Handle pod details route
+def serve_react_app(pod_id=None):
+    # For all routes, serve index.html to let TanStack Router handle routing for SPA
     if os.path.exists(os.path.join(server.static_folder, 'index.html')):
         return send_from_directory(server.static_folder, 'index.html')
     else:
