@@ -1,7 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useRef, useCallback, useEffect } from 'react'
 import { PodCard } from '@/components/PodCard'
 import { useWebAPI } from '@/hooks/useWebAPI'
+import { useState} from 'react'
 
 export const Route = createFileRoute('/')({
   component: App,
@@ -10,8 +11,11 @@ export const Route = createFileRoute('/')({
 function App() {
   const { pods, loading, error, hasMore, fetchPods } = useWebAPI()
   const observer = useRef<IntersectionObserver | null>(null)
-  
-  // Initial fetch
+  const navigate = useNavigate() 
+  const [search, setSearch] = useState('')
+  const filteredPods = pods.filter(pod =>
+    pod.query.toLowerCase().includes(search.toLowerCase()))
+    
   useEffect(() => {
     fetchPods(10, 0)
   }, [fetchPods])
@@ -30,7 +34,9 @@ function App() {
   }, [loading, hasMore, fetchPods, pods.length])
 
   return (
+    
     <div className="min-h-screen bg-base-300 p-4">
+      
       <div className="container mx-auto">
         <div className="flex flex-col gap-6">
           {error && (
@@ -39,19 +45,26 @@ function App() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pods.map((pod, index) => (
-              <div
-                key={pod.id}
-                ref={index === pods.length - 1 ? lastPodElementRef : undefined}
-              >
-                <PodCard
-                  pod={pod}
-                />
-              </div>
-            ))}
-          </div>
+      <div className="mb-6">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search podcasts..."
+          className="input input-bordered w-full"
+        />
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {pods
+          .filter(pod =>
+            pod.query.toLowerCase().includes(search.toLowerCase())
+          )
+          .map(pod => (
+            <PodCard key={pod.id} pod={pod} onClick={() => {navigate({ to: `/pod/${pod.id}` }) 
+            }} />
+          ))}
+      </div>
           {loading && (
             <div className="flex justify-center p-4">
               <span className="loading loading-spinner loading-lg"></span>

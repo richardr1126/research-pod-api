@@ -56,7 +56,6 @@ export function useWebAPI() {
       const response = await fetch(`${API_BASE}/v1/api/pods?limit=${limit}&offset=${offset}`)
       if (!response.ok) throw new Error('Failed to fetch pods')
       const data = await response.json()
-      
       setPods(prev => offset === 0 ? data : [...prev, ...data])
       setHasMore(data.length === limit)
       setError(null)
@@ -64,6 +63,16 @@ export function useWebAPI() {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const fetchPodById = useCallback(async (id: string): Promise<ResearchPodDetails> => {
+    try {
+      const response = await fetch(`${API_BASE}/v1/api/pod/get/${id}`)
+      if (!response.ok) throw new Error('Failed to fetch pod details')
+      return await response.json()
+    } catch (err) {
+      throw err
     }
   }, [])
 
@@ -226,6 +235,7 @@ export function useWebAPI() {
 
     // Research pod
     createPod,
+    fetchPodById,
     status,
     progress,
     message,

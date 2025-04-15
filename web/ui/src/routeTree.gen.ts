@@ -13,7 +13,7 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as CreateImport } from './routes/create'
 import { Route as IndexImport } from './routes/index'
-import { Route as DetailsPodIdImport } from './routes/details.$podId'
+import { Route as PodPodIdImport } from './routes/pod/$podId'
 
 // Create/Update Routes
 
@@ -29,9 +29,9 @@ const IndexRoute = IndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const DetailsPodIdRoute = DetailsPodIdImport.update({
-  id: '/details/$podId',
-  path: '/details/$podId',
+const PodPodIdRoute = PodPodIdImport.update({
+  id: '/pod/$podId',
+  path: '/pod/$podId',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -53,11 +53,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreateImport
       parentRoute: typeof rootRoute
     }
-    '/details/$podId': {
-      id: '/details/$podId'
-      path: '/details/$podId'
-      fullPath: '/details/$podId'
-      preLoaderRoute: typeof DetailsPodIdImport
+    '/pod/$podId': {
+      id: '/pod/$podId'
+      path: '/pod/$podId'
+      fullPath: '/pod/$podId'
+      preLoaderRoute: typeof PodPodIdImport
       parentRoute: typeof rootRoute
     }
   }
@@ -68,41 +68,41 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/details/$podId': typeof DetailsPodIdRoute
+  '/pod/$podId': typeof PodPodIdRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/details/$podId': typeof DetailsPodIdRoute
+  '/pod/$podId': typeof PodPodIdRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
-  '/details/$podId': typeof DetailsPodIdRoute
+  '/pod/$podId': typeof PodPodIdRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create' | '/details/$podId'
+  fullPaths: '/' | '/create' | '/pod/$podId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create' | '/details/$podId'
-  id: '__root__' | '/' | '/create' | '/details/$podId'
+  to: '/' | '/create' | '/pod/$podId'
+  id: '__root__' | '/' | '/create' | '/pod/$podId'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreateRoute: typeof CreateRoute
-  DetailsPodIdRoute: typeof DetailsPodIdRoute
+  PodPodIdRoute: typeof PodPodIdRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoute: CreateRoute,
-  DetailsPodIdRoute: DetailsPodIdRoute,
+  PodPodIdRoute: PodPodIdRoute,
 }
 
 export const routeTree = rootRoute
@@ -117,7 +117,7 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/create",
-        "/details/$podId"
+        "/pod/$podId"
       ]
     },
     "/": {
@@ -126,8 +126,8 @@ export const routeTree = rootRoute
     "/create": {
       "filePath": "create.tsx"
     },
-    "/details/$podId": {
-      "filePath": "details.$podId.tsx"
+    "/pod/$podId": {
+      "filePath": "pod/$podId.tsx"
     }
   }
 }

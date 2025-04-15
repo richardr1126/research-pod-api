@@ -49,7 +49,7 @@ export default function Sidebar() {
       </div>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:block min-h-screen min-w-64 p-4 bg-base-100">
+      <div className="hidden md:block min-h-screen min-w-64 p-4 text-white" style={{ backgroundColor: '#858585' }}>
         <div className="mb-6">
           <h2 className="text-2xl font-bold mx-2">Research Pod</h2>
         </div>
