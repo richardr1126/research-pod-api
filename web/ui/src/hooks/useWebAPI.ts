@@ -16,8 +16,8 @@ export interface ResearchPodDetails {
   status: ResearchPodStatus
   error_message: string | null
   consumer_id: string
-  created_at: string
-  updated_at: string
+  created_at: number
+  updated_at: number
   similar_pods: Pod[] | null
 }
 
