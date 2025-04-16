@@ -209,11 +209,12 @@ def get_pod(pod_id):
     
 @server.route('/v1/api/pods', methods=['GET'])
 def get_pods():
-    """Get a paginated list of research pods with Redis caching."""
+    """Get a paginated list of research pods with optional search and Redis caching."""
     try:
         # Get pagination parameters
         limit = request.args.get('limit', default=10, type=int)
         offset = request.args.get('offset', default=0, type=int)
+        search = request.args.get('search', default=None, type=str)
 
         # Basic validation
         if limit <= 0 or offset < 0:
@@ -222,8 +223,10 @@ def get_pods():
         # Limit the maximum number of pods per request
         limit = min(limit, 100) # Set a reasonable max limit
 
-        # Create cache key
+        # Create cache key, include search if present
         cache_key = f"pods:limit={limit}:offset={offset}"
+        if search:
+            cache_key += f":search={search.lower()}"
 
         # Check cache first
         cached_data = redis_client.get(cache_key)
@@ -232,8 +235,11 @@ def get_pods():
             return jsonify(json.loads(cached_data)), 200
 
         logger.info(f"Cache miss for key: {cache_key}. Querying database.")
-        # Query database with pagination
-        pods_query = db.session.query(ResearchPods).order_by(ResearchPods.created_at.desc()).limit(limit).offset(offset)
+        # Query database with pagination and optional search
+        pods_query = db.session.query(ResearchPods)
+        if search:
+            pods_query = pods_query.filter(ResearchPods.query.ilike(f"%{search}%"))
+        pods_query = pods_query.order_by(ResearchPods.created_at.desc()).limit(limit).offset(offset)
         pods = pods_query.all()
 
         # Convert pods to list of dictionaries

@@ -51,7 +51,7 @@ export const PodCard: FC<PodCardProps> = ({ pod, onClick }) => {
         </div>
 
         {pod.audio_url && (
-          <audio className="w-full mt-2" controls>
+          <audio className="w-full mt-2" controls onClick={e => e.stopPropagation()}>
             <source src={pod.audio_url} type="audio/mpeg" />
             Your browser does not support the audio element.
           </audio>
