@@ -27,43 +27,7 @@ The system processes research queries by scraping relevant papers from arXiv, an
 
 ## System Architecture
 
-```mermaid
-graph TD
-    Client{{React Client}}
-
-    WebAPI[Web API]
-
-    Kafka{Kafka}
-    
-    subgraph Storage
-        Redis[(Redis)]
-        YugabyteDB[(YugabyteDB)]
-    end
-
-    subgraph Consumers
-        Consumer1([Research 1])
-        Consumer2([Research 2])
-        Consumer3([Research 3])
-    end
-
-    %% Client flow
-    Client -->|Submit Research| WebAPI
-    
-    %% API operations
-    WebAPI -->|Cache/Get Worker URL| Redis
-    WebAPI -->|Store/Get Data| YugabyteDB
-    WebAPI -->|Queue Job| Kafka
-    
-    %% Worker processing
-    Kafka -->|Assign Task| Consumer2
-    
-    %% Data operations
-    Consumer2 -->|Update assigned URL| Redis
-    Consumer2 -->|Store Data| YugabyteDB
-    
-    %% Live updates
-    Client -.->|Stream Updates| Consumer2
-```
+![Architecture diagram](architecture.excalidraw.png)
 
 ## Flow with Single Consumer
 
