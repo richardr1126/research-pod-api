@@ -1,19 +1,17 @@
 import type { FC } from 'react'
-import type { ResearchPodDetails } from '@/hooks/useWebAPI'
+import type { Pod } from '@/hooks/useWebAPI'
 import { SourceTag } from './SourceTag'
 import { Link } from '@tanstack/react-router'
 import { PodCard } from './PodCard'
 import { useNavigate } from '@tanstack/react-router'
 
-interface Props {
-  pod: ResearchPodDetails
-}
-
-export const PodDetails: FC<Props> = ({ pod }) => {
+export const PodDetails: FC<{
+  pod: Pod
+}> = ({ pod }) => {
   const navigate = useNavigate()
 
   return (
-    <div className="bg-base-300 px-10">
+    <div className="min-h-screen bg-base-300 px-10">
       <div>
         <Link to="/" className="bg-base-700 text-primary hover:underline mb-4 px-5 py-7 btn btn-ghost justify-start">
           ← Back to all pods
@@ -23,7 +21,9 @@ export const PodDetails: FC<Props> = ({ pod }) => {
 
           <div className="p-4 bg-base card-body py-4 px-5">
 
-            <h1 className="text-6xl font-bold mb-2 py-4">{pod.query}</h1>
+            <h1 className="text-6xl font-bold mb-2 py-4">{pod.title}</h1>
+            <h2 className="font-bold mb-2 py-4">{pod.query}</h2>
+            
             <div className="text-sm text-base-content/70">
               Created: {new Date(pod.created_at * 1000).toLocaleString()}
             </div>

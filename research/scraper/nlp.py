@@ -14,6 +14,10 @@ class KeywordCategories(BaseModel):
     """Structure for categorized keyword groups"""
     keyword_groups: List[KeywordGroup] = Field(description="List of semantically related keyword groups")
 
+class PodcastTitle(BaseModel):
+    """Structure for a podcast title"""
+    title: str = Field(description="A short, catchy title for the podcast episode based on the transcript.")
+
 def setup_client():
     """Initialize Azure OpenAI client with LangChain"""
     # Getting ready to fully switch to Azure AI, contact me for keys
@@ -64,3 +68,37 @@ def process_search_query(query: str) -> List[List[str]]:
     except Exception as e:
         print(f"Error processing Azure OpenAI response: {e}")
         return [[query]]
+
+def generate_podcast_title(transcript: str, query: str) -> str:
+    """
+    Generate a short title for a podcast episode based on its transcript and the original search query.
+    
+    Args:
+        transcript (str): The full transcript of the podcast episode.
+        query (str): The original search query related to the podcast.
+        
+    Returns:
+        str: A short, catchy title for the podcast.
+    """
+    client = setup_client()
+    
+    # Create a model with structured output for the title
+    model_with_structure = client.with_structured_output(PodcastTitle)
+    
+    system_prompt = """Analyze the provided podcast transcript and the original search query to generate a short, catchy, and relevant title for the episode. 
+    The title should capture the main topic or essence of the discussion, considering the context provided by the query. Aim for a title that is concise and engaging."""
+    
+    # Get the structured title
+    try:
+        result = model_with_structure.invoke(
+            f"{system_prompt}\\n\\nOriginal Query: {query}\\n\\nTranscript:\\n{transcript}"
+        )
+        return result.title
+    except Exception as e:
+        print(f"Error generating podcast title: {e}")
+        # Fallback to the first few words of the query
+        query_words = query.split()
+        fallback_title = " ".join(query_words[:5]) # Use first 5 words
+        if len(query_words) > 5:
+            fallback_title += "..."
+        return fallback_title if fallback_title else "Podcast Episode" # Ensure there's always some fallback

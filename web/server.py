@@ -12,6 +12,7 @@ import redis
 from datetime import datetime, timezone
 from prometheus_flask_exporter import PrometheusMetrics
 from db import db, ResearchPods
+from sqlalchemy import or_
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,9 +58,9 @@ try:
         value_serializer=lambda v: json.dumps(v).encode('utf-8'),
         client_id=client_id,
         max_in_flight_requests_per_connection=1,  # Ensure ordering
-        # security_protocol='SSL',
-        # ssl_check_hostname=True,
-        # ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+        security_protocol='SSL',
+        ssl_check_hostname=True,
+        ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
     )
     logger.info(f"Successfully connected to Kafka at {os.getenv('KAFKA_BOOTSTRAP_SERVERS')}")
 except Exception as e:
@@ -238,7 +239,14 @@ def get_pods():
         # Query database with pagination and optional search
         pods_query = db.session.query(ResearchPods)
         if search:
-            pods_query = pods_query.filter(ResearchPods.query.ilike(f"%{search}%"))
+            # Search by title or query
+            search_term = f"%{search}%"
+            pods_query = pods_query.filter(
+                or_(
+                    ResearchPods.query.ilike(search_term),
+                    ResearchPods.title.ilike(search_term)
+                )
+            )
         pods_query = pods_query.order_by(ResearchPods.created_at.desc()).limit(limit).offset(offset)
         pods = pods_query.all()
 

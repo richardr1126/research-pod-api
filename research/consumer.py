@@ -24,6 +24,7 @@ from scraper.web_scrape import search_and_crawl
 from rag import rag_chain, vector_store
 from speech.tts import TextToSpeechClient
 from db import db, ResearchPods
+from scraper.nlp import generate_podcast_title
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,25 +61,25 @@ consumer = KafkaConsumer( # Consumer for scrape requests
     max_poll_interval_ms=600000,  # 10 minutes instead of default 5 minutes
     max_poll_records=1,           # Process one record at a time
     session_timeout_ms=60000,     # 1 minute session timeout
-    #security_protocol='SSL',
-    #ssl_check_hostname=True,
-    #ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+    security_protocol='SSL',
+    ssl_check_hostname=True,
+    ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
 )
 
 producer = KafkaProducer( # Producer to return research results
     bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
     value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-    #security_protocol='SSL',
-    #ssl_check_hostname=True,
-    #ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+    security_protocol='SSL',
+    ssl_check_hostname=True,
+    ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
 )
 
 # Initialize Kafka Admin Client
 admin_client = KafkaAdminClient(
     bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
-    # security_protocol='SSL',
-    # ssl_check_hostname=True,
-    # ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+    security_protocol='SSL',
+    ssl_check_hostname=True,
+    ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
 )
 
 def cleanup_pod_topic(pod_id: str):
@@ -212,6 +213,10 @@ def process_message(message):
         similar_pod_ids = vector_store.get_similar_transcripts(pod_id, transcript)
         logger.info(f"Found {len(similar_pod_ids)} similar pods")
 
+        # Generate podcast title
+        title = generate_podcast_title(transcript, query)
+        logger.info(f"Generated title for podcast: {title}")
+
         # Clear temporary document embeddings after use
         vector_store.clear()
         logger.info("Cleared temporary document embeddings")
@@ -243,6 +248,7 @@ def process_message(message):
         with app.app_context():
             research_pod = db.session.get(ResearchPods, pod_id)
             if research_pod:
+                research_pod.title = title
                 research_pod.transcript = transcript
                 research_pod.keywords_arxiv = json.dumps(papers_keyword_groups)
                 research_pod.sources_arxiv = json.dumps(papers_sources)

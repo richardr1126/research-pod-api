@@ -10,6 +10,7 @@ class ResearchPods(db.Model):
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid7()))
     query = db.Column(db.String(512), nullable=False)
+    title = db.Column(db.String(256), nullable=False)  # Store the podcast title
     audio_url = db.Column(db.String(512))  # Store the URL of the audio file
     keywords_arxiv = db.Column(db.Text)  # Store the keyword groups as JSON dumps list
     sources_arxiv = db.Column(db.Text)  # Store the sources from arXiv as JSON dumps list
@@ -33,6 +34,7 @@ class ResearchPods(db.Model):
         result = {
             'id': self.id,
             'query': self.query,
+            'title': self.title,
             'audio_url': self.audio_url,
             'keywords_arxiv': json.loads(self.keywords_arxiv) if self.keywords_arxiv else None,
             'sources_arxiv': json.loads(self.sources_arxiv) if self.sources_arxiv else None,
@@ -55,9 +57,11 @@ class ResearchPods(db.Model):
                 if similar_pod:
                     similar_pods_hydrated.append({
                         'id': similar_pod.id,
+                        'title': similar_pod.title,
                         'query': similar_pod.query,
                         'audio_url': similar_pod.audio_url,
-                        'created_at': similar_pod.created_at
+                        'created_at': similar_pod.created_at,
+                        'updated_at': similar_pod.updated_at,
                     })
             
             result['similar_pods'] = similar_pods_hydrated
@@ -76,6 +80,7 @@ class ResearchPods(db.Model):
         return {
             'id': self.id,
             'query': self.query,
+            'title': self.title,
             'audio_url': self.audio_url,
             'keywords_arxiv': json.loads(self.keywords_arxiv) if self.keywords_arxiv else None,
             'sources_arxiv': json.loads(self.sources_arxiv) if self.sources_arxiv else None,
@@ -88,7 +93,16 @@ class ResearchPods(db.Model):
     @classmethod
     def create_from_request(cls, query: str):
         """Create a new research pod from an initial request"""
+        # Use temp title based on query
+        # Fallback to the first few words of the query
+        query_words = query.split()
+        fallback_title = " ".join(query_words[:5]) # Use first 5 words
+        if len(query_words) > 5:
+            fallback_title += "..."
+        title = fallback_title if fallback_title else "Podcast Episode" # Ensure there's always some fallback
+
         return cls(
             query=query,
+            title=title,    
             status='QUEUED'
         )

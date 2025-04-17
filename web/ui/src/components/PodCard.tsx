@@ -1,25 +1,11 @@
 import type { FC } from 'react'
-import { SourceTag } from './SourceTag'
+import { SourceTag } from '@/components/SourceTag'
+import type { Pod } from '@/hooks/useWebAPI'
 
-export interface Pod {
-  id: string
-  query: string
-  status?: 'QUEUED' | 'ASSIGNED' | 'PROCESSING' | 'IN_PROGRESS' | 'COMPLETED' | 'ERROR'
-  progress?: number
-  created_at: number
-  updated_at?: number
-  audio_url?: string
-  transcript?: string
-  sources_arxiv?: Array<{ title: string; url: string; authors: string | string[] }>
-  sources_ddg?: Array<{ title: string; url: string; snippet?: string; keywords_used?: string[] }>
-}
-
-interface PodCardProps {
+export const PodCard: FC<{
   pod: Pod
   onClick?: () => void
-}
-
-export const PodCard: FC<PodCardProps> = ({ pod, onClick }) => {
+}> = ({ pod, onClick }) => {
   const statusColors = {
     QUEUED: 'badge-neutral',
     ASSIGNED: 'badge-info',
@@ -36,7 +22,7 @@ export const PodCard: FC<PodCardProps> = ({ pod, onClick }) => {
     >
       <div className="card-body py-4 px-5">
         <div className="card-title flex justify-between">
-          <h2 className='truncate'>{pod.query}</h2>
+          <h2 className='truncate'>{pod.title}</h2>
           {pod.status && (
             <div className={`badge ${statusColors[pod.status]}`}>
               {pod.status}

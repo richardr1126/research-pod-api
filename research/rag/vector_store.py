@@ -9,6 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_postgres.vectorstores import PGVector
 from langchain_openai import OpenAIEmbeddings
 from uuid_v7.base import uuid7
+import time
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=2000,
@@ -84,6 +85,7 @@ def clear():
     try:
         # Only delete the documents collection, keep transcripts
         pgvector.delete_collection()
+        time.sleep(5)
         pgvector.create_collection()
     except Exception as e:
         raise  # Re-raise the exception to make sure caller knows about the failure

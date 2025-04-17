@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { Pod } from '../components/PodCard'
 
 const API_BASE = 'https://api.richardr.dev'
 
 export type ResearchPodStatus = 'QUEUED' | 'ASSIGNED' | 'PROCESSING' | 'IN_PROGRESS' | 'COMPLETED' | 'ERROR'
 
-export interface ResearchPodDetails {
+export interface Pod {
   id: string
   query: string
+  title: string
   audio_url: string | null
   keywords_arxiv: string[][] | null
   sources_arxiv: Array<{ title: string; url: string; authors: string | string[] }> | null
@@ -34,6 +34,7 @@ export function useWebAPI() {
   const [pods, setPods] = useState<Pod[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
+  const [currentSearch, setCurrentSearch] = useState<string | null>(null) // Keep track of the current search term
 
   // Research pod state
   const [podId, setPodId] = useState<string | null>(null)
@@ -41,7 +42,7 @@ export function useWebAPI() {
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const [eventsUrl, setEventsUrl] = useState<string | null>(null)
-  const [podDetails, setPodDetails] = useState<ResearchPodDetails | null>(null)
+  const [podDetails, setPodDetails] = useState<Pod | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -50,23 +51,40 @@ export function useWebAPI() {
   const pollingIntervalRef = useRef<number | null>(null)
 
   // Pod list methods
-  const fetchPods = useCallback(async (limit = 10, offset = 0) => {
+  const fetchPods = useCallback(async (limit = 10, offset = 0, search: string | null = null) => {
+    // If the search term changes, reset hasMore and treat as a new list
+    const isNewSearch = search !== currentSearch;
+    const actualOffset = isNewSearch ? 0 : offset;
+
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE}/v1/api/pods?limit=${limit}&offset=${offset}`)
+      let url = `${API_BASE}/v1/api/pods?limit=${limit}&offset=${actualOffset}`
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`
+      }
+      const response = await fetch(url)
       if (!response.ok) throw new Error('Failed to fetch pods')
       const data = await response.json()
-      setPods(prev => offset === 0 ? data : [...prev, ...data])
+
+      // If it's a new search or the first page load, replace pods
+      // Otherwise, append
+      setPods(prev => (actualOffset === 0 ? data : [...prev, ...data]))
       setHasMore(data.length === limit)
+      setCurrentSearch(search) // Update the current search term
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
+      // If search fails, potentially clear pods or show error state
+      if (isNewSearch) {
+        setPods([]);
+        setHasMore(false);
+      }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentSearch]) // Add currentSearch to dependency array
 
-  const fetchPodById = useCallback(async (id: string): Promise<ResearchPodDetails> => {
+  const fetchPodById = useCallback(async (id: string): Promise<Pod> => {
     try {
       const response = await fetch(`${API_BASE}/v1/api/pod/get/${id}`)
       if (!response.ok) throw new Error('Failed to fetch pod details')
@@ -232,6 +250,7 @@ export function useWebAPI() {
     error,
     hasMore,
     fetchPods,
+    currentSearch, // Expose currentSearch if needed elsewhere, optional
 
     // Research pod
     createPod,

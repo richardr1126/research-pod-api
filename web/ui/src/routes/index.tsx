@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect, useState } from 'react'
 import { PodCard } from '@/components/PodCard'
 import { useWebAPI } from '@/hooks/useWebAPI'
-import { useState } from 'react'
+import { useDebounce } from '@uidotdev/usehooks' // Using a debounce hook
 
 export const Route = createFileRoute('/')({
   component: App,
@@ -12,12 +12,14 @@ function App() {
   const { pods, loading, error, hasMore, fetchPods } = useWebAPI()
   const observer = useRef<IntersectionObserver | null>(null)
   const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const filteredPods = pods.filter(pod => pod.query.toLowerCase().includes(search.toLowerCase()))
+  const [searchTerm, setSearchTerm] = useState('')
+  const debouncedSearchTerm = useDebounce(searchTerm, 500) // Debounce search input by 500ms
 
+  // Fetch initial pods or when debounced search term changes
   useEffect(() => {
-    fetchPods(10, 0)
-  }, [fetchPods])
+    // Fetch with the debounced search term, resetting pagination (offset 0)
+    fetchPods(10, 0, debouncedSearchTerm || null)
+  }, [fetchPods, debouncedSearchTerm])
 
   const lastPodElementRef = useCallback((node: HTMLDivElement | null) => {
     if (loading) return
@@ -25,12 +27,13 @@ function App() {
 
     observer.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasMore) {
-        fetchPods(10, pods.length)
+        // Fetch next page using the current debounced search term
+        fetchPods(10, pods.length, debouncedSearchTerm || null)
       }
     })
 
     if (node) observer.current.observe(node)
-  }, [loading, hasMore, fetchPods, pods.length])
+  }, [loading, hasMore, fetchPods, pods.length, debouncedSearchTerm])
 
   return (
 
@@ -47,16 +50,17 @@ function App() {
           <div className="mb-6">
             <input
               type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search podcasts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search existing research ..."
               className="input input-bordered w-full"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredPods.map((pod, idx) => {
-              const isLast = idx === filteredPods.length - 1;
+            {/* Render pods directly from the state */}
+            {pods.map((pod, idx) => {
+              const isLast = idx === pods.length - 1;
               return (
                 <div
                   key={pod.id}
@@ -75,10 +79,14 @@ function App() {
             </div>
           )}
 
-          {!loading && !error && filteredPods.length === 0 && (
+          {!loading && !error && pods.length === 0 && (
             <div className="text-center p-8">
               <h3 className="text-lg font-semibold">No research pods found</h3>
-              <p className="text-base-content/70">Create a new research query to get started.</p>
+              <p className="text-base-content/70">
+                {searchTerm
+                  ? `No results for "${searchTerm}". Try a different search or clear the search bar.`
+                  : 'Create a new research query to get started.'}
+              </p>
             </div>
           )}
         </div>
