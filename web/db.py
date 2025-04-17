@@ -57,9 +57,11 @@ class ResearchPods(db.Model):
                 if similar_pod:
                     similar_pods_hydrated.append({
                         'id': similar_pod.id,
+                        'title': similar_pod.title,
                         'query': similar_pod.query,
                         'audio_url': similar_pod.audio_url,
-                        'created_at': similar_pod.created_at
+                        'created_at': similar_pod.created_at,
+                        'updated_at': similar_pod.updated_at,
                     })
             
             result['similar_pods'] = similar_pods_hydrated
