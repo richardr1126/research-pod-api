@@ -21,8 +21,8 @@ export const PodDetails: FC<{
 
           <div className="p-4 bg-base card-body py-4 px-5">
 
-            <h1 className="text-6xl font-bold mb-2 py-4">{pod.title}</h1>
-            <h2 className="font-bold mb-2 py-4">{pod.query}</h2>
+            <h1 className="text-5xl font-bold mb-2 py-4">{pod.title}</h1>
+            <h2 className="font-bold mb-2">Research query: {pod.query}</h2>
             
             <div className="text-sm text-base-content/70">
               Created: {new Date(pod.created_at * 1000).toLocaleString()}
