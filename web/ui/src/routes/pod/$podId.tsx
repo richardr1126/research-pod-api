@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useWebAPI } from '@/hooks/useWebAPI'
-import type { ResearchPodDetails } from '@/hooks/useWebAPI'
+import type { Pod } from '@/hooks/useWebAPI'
 import { PodDetails } from '@/components/PodDetails'
 
 export const Route = createFileRoute('/pod/$podId')({
@@ -11,7 +11,7 @@ export const Route = createFileRoute('/pod/$podId')({
 function PodDetailsPage() {
   const { podId } = Route.useParams() 
   const { fetchPodById } = useWebAPI()
-  const [pod, setPod] = useState<ResearchPodDetails | null>(null)
+  const [pod, setPod] = useState<Pod | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

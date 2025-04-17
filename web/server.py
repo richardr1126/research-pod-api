@@ -57,9 +57,9 @@ try:
         value_serializer=lambda v: json.dumps(v).encode('utf-8'),
         client_id=client_id,
         max_in_flight_requests_per_connection=1,  # Ensure ordering
-        # security_protocol='SSL',
-        # ssl_check_hostname=True,
-        # ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
+        security_protocol='SSL',
+        ssl_check_hostname=True,
+        ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
     )
     logger.info(f"Successfully connected to Kafka at {os.getenv('KAFKA_BOOTSTRAP_SERVERS')}")
 except Exception as e:

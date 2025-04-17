@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { Pod } from '../components/PodCard'
 
 const API_BASE = 'https://api.richardr.dev'
 
 export type ResearchPodStatus = 'QUEUED' | 'ASSIGNED' | 'PROCESSING' | 'IN_PROGRESS' | 'COMPLETED' | 'ERROR'
 
-export interface ResearchPodDetails {
+export interface Pod {
   id: string
   query: string
+  title: string
   audio_url: string | null
   keywords_arxiv: string[][] | null
   sources_arxiv: Array<{ title: string; url: string; authors: string | string[] }> | null
@@ -41,7 +41,7 @@ export function useWebAPI() {
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const [eventsUrl, setEventsUrl] = useState<string | null>(null)
-  const [podDetails, setPodDetails] = useState<ResearchPodDetails | null>(null)
+  const [podDetails, setPodDetails] = useState<Pod | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -66,7 +66,7 @@ export function useWebAPI() {
     }
   }, [])
 
-  const fetchPodById = useCallback(async (id: string): Promise<ResearchPodDetails> => {
+  const fetchPodById = useCallback(async (id: string): Promise<Pod> => {
     try {
       const response = await fetch(`${API_BASE}/v1/api/pod/get/${id}`)
       if (!response.ok) throw new Error('Failed to fetch pod details')

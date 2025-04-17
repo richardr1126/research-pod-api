@@ -10,6 +10,7 @@ class ResearchPods(db.Model):
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid7()))
     query = db.Column(db.String(512), nullable=False)
+    title = db.Column(db.String(256), nullable=False)  # Store the podcast title
     audio_url = db.Column(db.String(512))  # Store the URL of the audio file
     keywords_arxiv = db.Column(db.Text)  # Store the keyword groups as JSON dumps list
     sources_arxiv = db.Column(db.Text)  # Store the sources from arXiv as JSON dumps list
