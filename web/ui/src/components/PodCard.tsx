@@ -17,23 +17,23 @@ export const PodCard: FC<{
 
   return (
     <div
-      className="card bg-base-100 shadow-xl cursor-pointer hover:shadow-2xl transition-shadow"
+      className="card bg-base-100 shadow-xl cursor-pointer hover:shadow-2xl transition-shadow overflow-hidden"
       onClick={onClick}
     >
       <div className="card-body py-4 px-5">
-        <div className="card-title flex justify-between">
+        <div className="card-title flex">
           <h2 className='truncate'>{pod.title}</h2>
-          {pod.status && (
-            <div className={`badge ${statusColors[pod.status]}`}>
-              {pod.status}
-            </div>
-          )}
         </div>
 
-        <div className="flex justify-between text-sm text-base-content/70">
+        <div className="flex justify-between items-center text-sm text-base-content/70">
           <span>
             {new Date(pod.created_at * 1000).toLocaleDateString()} • {new Date(pod.created_at * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </span>
+          {pod.status && (
+            <div className={`badge badge-sm ${statusColors[pod.status]}`}>
+              {pod.status}
+            </div>
+          )}
         </div>
 
         {pod.audio_url && (

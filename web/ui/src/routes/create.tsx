@@ -138,7 +138,7 @@ function CreatePage() {
                   <div
                     key={index}
                     className={`flex gap-3 py-1 px-2 rounded-lg transition-all duration-200 ${
-                      index === messageHistory.length - 1 ? 'bg-primary bg-opacity-10' : 'bg-base-100'
+                      index === messageHistory.length - 1 ? 'glass bg-opacity-10' : 'bg-base-100'
                     }`}
                   >
                     <div className="flex-none">

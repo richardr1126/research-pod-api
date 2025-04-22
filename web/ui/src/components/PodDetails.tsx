@@ -11,26 +11,26 @@ export const PodDetails: FC<{
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-base-300 px-10">
+    <div className="min-h-screen bg-base-300 mx-auto px-4 md:p-8">
       <div>
-        <Link to="/" className="bg-base-700 text-primary hover:underline mb-4 px-5 py-7 btn btn-ghost justify-start">
+        <Link to="/" className="bg-base-700 text-primary hover:underline btn btn-ghost my-2">
           ← Back to all pods
         </Link>
 
         <div className="card bg-base-100 shadow-xl transition-shadow">
 
-          <div className="p-4 bg-base card-body py-4 px-5">
+          <div className="p-4 md:p-6 bg-base card-body">
 
-            <h1 className="text-5xl font-bold mb-2 py-4">{pod.title}</h1>
-            <h2 className="font-bold mb-2">Research query: {pod.query}</h2>
-            
+            <h1 className="text-3xl md:text-5xl font-bold w-fit">{pod.title}</h1>
+            <h2 className="font-bold">Research query: {pod.query}</h2>
+
             <div className="text-sm text-base-content/70">
               Created: {new Date(pod.created_at * 1000).toLocaleString()}
             </div>
 
             {/* Audio player */}
             {pod.audio_url && (
-              <audio className="w-full my-4 flex z-999" controls>
+              <audio className="w-full my-4 flex" controls>
                 <source src={pod.audio_url} type="audio/mpeg" />
                 Your browser does not support the audio element.
               </audio>
@@ -39,8 +39,8 @@ export const PodDetails: FC<{
             {/* Sources */}
             {(pod.sources_ddg?.length || pod.sources_arxiv?.length) && (
               <>
-                <h2 className="text-4xl font-semibold mt-6 mb-2">Sources</h2>
-                <div className="flex flex-wrap gap-2">
+                <h2 className="text-2xl md:text-4xl font-semibold">Sources</h2>
+                <div className="flex flex-wrap gap-2 mb-4">
                   {pod.sources_ddg?.map((s, i) => (
                     <SourceTag variant='lg' key={`ddg-${i}`} source={s} />
                   ))}
@@ -54,31 +54,32 @@ export const PodDetails: FC<{
             {/* Transcript */}
             {pod.transcript && (
               <>
-                <h2 className="text-4xl font-semibold mt-6 mb-2">Transcript</h2>
-                <p className="whitespace-pre-wrap text-base-content text-xl">{pod.transcript}</p>
+                <h2 className="text-2xl md:text-4xl font-semibold">Transcript</h2>
+                <p className="whitespace-pre-wrap mb-4">{pod.transcript}</p>
               </>
             )}
 
-            {/* Similar Pods */}
-            {pod && pod.similar_pods && pod.similar_pods.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-4xl font-semibold mb-4">Similar Research Pods</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {pod.similar_pods.map((similarPod) => (
-                    <PodCard
-                      key={similarPod.id}
-                      pod={similarPod}
-                      onClick={() => {
-                        navigate({ to: `/pod/${similarPod.id}` })
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
 
         </div>
+        {/* Similar Pods */}
+        {pod && pod.similar_pods && pod.similar_pods.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-2xl md:text-4xl font-semibold mb-4">Similar Research Pods</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pod.similar_pods.map((similarPod) => (
+                <PodCard
+                  key={similarPod.id}
+                  pod={similarPod}
+                  onClick={() => {
+                    navigate({ to: `/pod/${similarPod.id}` })
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
