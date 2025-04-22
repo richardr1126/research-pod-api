@@ -10,6 +10,7 @@ from langchain_postgres.vectorstores import PGVector
 from langchain_openai import OpenAIEmbeddings
 from uuid_v7.base import uuid7
 import time
+import psycopg2
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=2000,
@@ -34,7 +35,10 @@ pgvector = PGVector(
     collection_name=f"research-docs-{uuid7()}",
     connection=os.getenv("SQLALCHEMY_DATABASE_URI"),
     use_jsonb=True,
-    create_extension=False
+    create_extension=False,
+    engine_args={
+        "pool_recycle": 3600
+    }
 )
 
 transcript_store = PGVector(
@@ -42,7 +46,10 @@ transcript_store = PGVector(
     collection_name="research-transcripts",  # Fixed collection name for transcripts
     connection=os.getenv("SQLALCHEMY_DATABASE_URI"),
     use_jsonb=True,
-    create_extension=False
+    create_extension=False,
+    engine_args={
+        "pool_recycle": 3600
+    }
 )
 
 def add_documents(documents: List[Dict[str, Any]], doc_type: str = "paper"):

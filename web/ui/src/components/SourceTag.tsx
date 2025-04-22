@@ -20,7 +20,7 @@ export const SourceTag: FC<{
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`flex-col text-left items-start badge badge-${variant} badge-ghost tooltip tooltip-top hover:glass max-w-full ${variant === 'lg' ? 'h-fit p-2 px-4' : ''}`}
+      className={`flex flex-col text-left items-start badge badge-${variant} badge-ghost tooltip tooltip-top hover:glass max-w-full ${variant === 'lg' ? 'h-fit p-2 px-4' : ''}`}
       data-tip={source.url}
       onClick={(e) => e.stopPropagation()}
     >

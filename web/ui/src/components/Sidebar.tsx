@@ -31,7 +31,7 @@ export default function Sidebar() {
       {/* Mobile Navbar */}
       <div className="md:hidden">
         <div className="navbar bg-base-100 shadow-lg fixed top-0 w-full z-50">
-          <div className="navbar-start">
+          <div className="navbar-start w-full">
             <div className="dropdown">
               <label tabIndex={0} className="btn btn-ghost">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -42,7 +42,7 @@ export default function Sidebar() {
                 <NavLinks />
               </ul>
             </div>
-            <h2 className="text-xl font-bold ml-2">Research Pod</h2>
+            <h2 className="text-xl font-bold ml-2 truncate">Research Pod</h2>
           </div>
         </div>
         <div className="h-16"></div> {/* Spacer for fixed navbar */}
