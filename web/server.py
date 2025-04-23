@@ -197,8 +197,8 @@ def get_pod(pod_id):
         # Convert the ResearchPod to dictionary format
         response = research_pod.to_dict()
 
-        # Cache the result in Redis (e.g., for 300 seconds)
-        redis_client.setex(cache_key, 300, json.dumps(response))
+        # Cache the result in Redis (e.g., for 60 seconds)
+        redis_client.setex(cache_key, 60, json.dumps(response))
         
         return jsonify(response), 200
         

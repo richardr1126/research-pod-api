@@ -10,7 +10,6 @@ from langchain_postgres.vectorstores import PGVector
 from langchain_openai import OpenAIEmbeddings
 from uuid_v7.base import uuid7
 import time
-import psycopg2
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=2000,
@@ -37,7 +36,7 @@ pgvector = PGVector(
     use_jsonb=True,
     create_extension=False,
     engine_args={
-        "pool_recycle": 3600
+        "pool_recycle": 1800
     }
 )
 
@@ -48,7 +47,7 @@ transcript_store = PGVector(
     use_jsonb=True,
     create_extension=False,
     engine_args={
-        "pool_recycle": 3600
+        "pool_recycle": 1800
     }
 )
 

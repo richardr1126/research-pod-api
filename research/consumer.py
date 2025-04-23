@@ -40,6 +40,9 @@ CORS(app)
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', '')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_recycle": 1800
+}
 
 # Initialize SQLAlchemy YugabyteDB connection
 db.init_app(app)
@@ -55,7 +58,7 @@ consumer = KafkaConsumer( # Consumer for scrape requests
     'scrape-requests',
     bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
     value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    auto_offset_reset='earliest',
+    #auto_offset_reset='earliest',
     enable_auto_commit=True,
     group_id='research-consumer-group',
     max_poll_interval_ms=600000,  # 10 minutes instead of default 5 minutes
@@ -82,44 +85,22 @@ admin_client = KafkaAdminClient(
     ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
 )
 
-def cleanup_pod_topic(pod_id: str):
-    """Delete the Kafka topic for a pod's updates after it's no longer needed."""
-    topic = f'pod-updates-{pod_id}'
-    try:
-        admin_client.delete_topics([topic])
-        logger.info(f"Deleted Kafka topic: {topic}")
-    except UnknownTopicOrPartitionError:
-        logger.debug(f"Topic {topic} doesn't exist or was already deleted")
-    except Exception as e:
-        logger.error(f"Error deleting Kafka topic {topic}: {str(e)}")
-
 def create_sse_consumer(pod_id: str) -> KafkaConsumer:
     """Create a new Kafka consumer for SSE updates for a specific pod."""
-    topic = f'pod-updates-{pod_id}'
     try:
-        # Create topic if it doesn't exist
-        try:
-            admin_client.create_topics([
-                NewTopic(
-                    name=topic,
-                    num_partitions=1,
-                    replication_factor=1
-                )
-            ])
-        except TopicAlreadyExistsError:
-            pass
-
         consumer = KafkaConsumer(
             bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
             value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-            auto_offset_reset='earliest',  # Changed from 'latest' to not miss messages
-            group_id=None,  # Remove group management to prevent rebalancing issues
-            consumer_timeout_ms=3000,  # 3 second timeout
+            enable_auto_commit=False,
+            auto_offset_reset='earliest',
+            group_id=f'sse-group-{pod_id}',  # Unique group ID per pod
+            consumer_timeout_ms=1000,  # 1 second timeout
+            max_poll_interval_ms=300000,  # 5 minutes
             security_protocol='SSL',
             ssl_check_hostname=True,
             ssl_cafile='/etc/kafka/certs/kafka-ca.crt',
         )
-        consumer.assign([TopicPartition(topic, 0)])
+        
         return consumer
     except Exception as e:
         logger.error(f"Error creating SSE consumer: {str(e)}")
@@ -158,7 +139,7 @@ def send_progress_update(pod_id: str, status: str, progress: int, message: str =
         "progress": progress,
         "message": update_data["message"]
     }
-    producer.send(f'pod-updates-{pod_id}', value=update)
+    producer.send(f'sse-{pod_id}', value=update)
     producer.flush()
 
 def process_message(message):
@@ -170,6 +151,18 @@ def process_message(message):
         
         if not query or not pod_id:
             return
+        
+        # Create sse topic if it doesn't exist
+        try:
+            admin_client.create_topics([
+                NewTopic(
+                    name=f'sse-{pod_id}',
+                    num_partitions=1,
+                    replication_factor=1
+                )
+            ])
+        except TopicAlreadyExistsError:
+            pass
             
         # Update Redis with consumer assignment
         redis_client.hset(f"pod:{pod_id}", 
@@ -314,6 +307,9 @@ def events(pod_id):
         sse_consumer = None
         try:
             sse_consumer = create_sse_consumer(pod_id)
+            # Subscribe to the specific pod's SSE topic
+            topic = f'sse-{pod_id}'
+            sse_consumer.subscribe([topic])
             
             # First check Redis for current status
             current_status = redis_client.hgetall(f"pod:{pod_id}")
@@ -324,24 +320,23 @@ def events(pod_id):
             keepalive_interval = 15  # Send keepalive every 15 seconds
             
             while True:
-                try:
-                    # Check for new messages
-                    for message in sse_consumer:
-                        if message and message.value:
-                            yield f"data: {json.dumps(message.value)}\n\n"
-                            if message.value.get("status") in ["COMPLETED", "ERROR"]:
-                                return
-                        
-                    # Send keepalive if needed
-                    current_time = time.time()
-                    if current_time - last_keepalive >= keepalive_interval:
-                        yield ": keepalive\n\n"
-                        last_keepalive = current_time
-                        
-                except Exception as e:
-                    logger.error(f"Error reading SSE message: {str(e)}")
-                    yield f"data: {json.dumps({'status': 'ERROR', 'message': str(e)})}\n\n"
-                    return
+                # Poll with a short timeout to allow for frequent checks
+                message_batch = sse_consumer.poll(timeout_ms=100)
+                
+                if message_batch:
+                    for tp, messages in message_batch.items():
+                        for message in messages:
+                            if message and message.value:
+                                yield f"data: {json.dumps(message.value)}\n\n"
+                                sse_consumer.commit()
+                                if message.value.get("status") in ["COMPLETED", "ERROR"]:
+                                    return
+                
+                # Send keepalive if needed
+                current_time = time.time()
+                if current_time - last_keepalive >= keepalive_interval:
+                    yield ": keepalive\n\n"
+                    last_keepalive = current_time
 
         except Exception as e:
             logger.error(f"SSE stream error: {str(e)}")
@@ -351,14 +346,84 @@ def events(pod_id):
             if sse_consumer:
                 try:
                     sse_consumer.close()
-                    cleanup_pod_topic(pod_id)
                 except Exception as e:
-                    logger.error(f"Error cleaning up SSE consumer: {str(e)}")
+                    logger.error(f"Error closing SSE consumer: {str(e)}")
 
     response = Response(generate(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Connection'] = 'keep-alive'
     return response
+
+def periodic_sse_topic_cleanup():
+    """Periodically clean up SSE topics based on pod completion status and retention time."""
+    RETENTION_MINUTES = 20  # Keep completed/error topics for 20 minutes
+    CLEANUP_INTERVAL = 2400  # Check every 40 minutes
+    
+    while True:
+        logger.info("Running periodic SSE topic cleanup...")
+        try:
+            # Get all topics matching the SSE pattern
+            all_topics = admin_client.list_topics()
+            sse_topics = [t for t in all_topics if t.startswith('sse-')]
+
+            topics_to_delete = []
+            current_time = datetime.now(timezone.utc).timestamp()
+
+            for topic in sse_topics:
+                try:
+                    pod_id = topic.replace('sse-', '')
+                    # Check Redis for pod status
+                    pod_info = redis_client.hgetall(f"pod:{pod_id}")
+                    
+                    if not pod_info:
+                        with app.app_context():
+                            research_pod = db.session.get(ResearchPods, pod_id)
+                            if research_pod:
+                                status = research_pod.status
+                                updated_at = research_pod.updated_at
+                            else:
+                                # If pod doesn't exist in DB or Redis, delete the topic
+                                topics_to_delete.append(topic)
+                                continue
+                    else:
+                        status = pod_info.get('status')
+                        updated_at = int(pod_info.get('updated_at', 0))
+
+                    # Delete completed/error topics after retention period
+                    if status in ["COMPLETED", "ERROR"]:
+                        minutes_since_update = (current_time - updated_at) / 60
+                        if minutes_since_update >= RETENTION_MINUTES:
+                            topics_to_delete.append(topic)
+                            logger.info(f"Marking SSE topic {topic} for deletion - Age: {minutes_since_update:.1f} minutes")
+                    # Also delete orphaned topics with no status after retention period
+                    elif not status and (current_time - updated_at) / 60 >= RETENTION_MINUTES:
+                        topics_to_delete.append(topic)
+                        logger.info(f"Marking orphaned SSE topic {topic} for deletion")
+
+                except Exception as topic_error:
+                    logger.error(f"Error processing topic {topic}: {str(topic_error)}")
+                    continue
+
+            if topics_to_delete:
+                try:
+                    logger.info(f"Deleting {len(topics_to_delete)} expired SSE topics: {topics_to_delete}")
+                    admin_client.delete_topics(topics_to_delete)
+                    
+                    # Clean up Redis keys for deleted topics
+                    for topic in topics_to_delete:
+                        pod_id = topic.replace('sse-', '')
+                        redis_client.delete(f"pod:{pod_id}")
+                        
+                except Exception as delete_error:
+                    logger.error(f"Failed to delete topics: {str(delete_error)}")
+            else:
+                logger.info("No SSE topics found matching retention criteria for deletion")
+
+        except Exception as e:
+            logger.error(f"Error during periodic SSE topic cleanup: {str(e)}", exc_info=True)
+
+        # Sleep until next cleanup interval
+        time.sleep(CLEANUP_INTERVAL)
 
 def run_consumer():
     """Run the Kafka consumer loop."""
@@ -380,6 +445,11 @@ def run():
     consumer_thread = Thread(target=run_consumer)
     consumer_thread.daemon = True
     consumer_thread.start()
+    
+    # Start cleanup thread
+    cleanup_thread = Thread(target=periodic_sse_topic_cleanup)
+    cleanup_thread.daemon = True
+    cleanup_thread.start()
     
     # Run Flask server
     app.run(host='0.0.0.0', port=8081)
