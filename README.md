@@ -4,7 +4,7 @@ Our team's distributed research analysis system. The system uses RAG (Retrieval-
 
 ### Key Components
 - **Paper Processing**: Automatically scrapes arXiv papers and converts them to a format our AI can understand
-- **AI Analysis**: Uses our custom RAG setup with DeepSeek Chat/Azure OpenAI and vector search
+- **AI Analysis**: Uses our custom RAG setup with Azure OpenAI and vector search
 - **Message Queue**: Uses Kafka to handle multiple papers at once without overloading
 - **Vector Search**: Uses pgvector to store transcripts and find similar research pods
 - **Database**: YugabyteDB for distributed SQL storage with high availability
