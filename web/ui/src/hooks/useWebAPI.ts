@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-const API_BASE = 'https://api.richardr.dev'
+const API_BASE = 'https://researchpod.richardr.dev'
 
 export type ResearchPodStatus = 'QUEUED' | 'ASSIGNED' | 'PROCESSING' | 'IN_PROGRESS' | 'COMPLETED' | 'ERROR'
 

@@ -12,7 +12,7 @@ service:
 
 ingress:
   enabled: true
-  ingressClassName: "nginx"
+  ingressClassName: "traefik"
   annotations:
     # cert-manager.io/cluster-issuer: letsencrypt-prod
     external-dns.alpha.kubernetes.io/hostname: kafkaui.richardr.dev

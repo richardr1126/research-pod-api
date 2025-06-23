@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
-replicaCount: 3
+replicaCount: 2
 
 env:
 - name: KAFKA_BOOTSTRAP_SERVERS
@@ -11,13 +11,13 @@ env:
 - name: REDIS_URL
   value: redis://redis-master.default.svc.cluster.local:6379
 - name: TTS_BASE_URL
-  value: http://kokoro-fastapi-kokoro-tts-service.default.svc.cluster.local:8880/v1
+  value: https://tts.richardr.dev/v1
 - name: AZURE_OPENAI_ENDPOINT
   value: https://openai-research-pod.openai.azure.com/
 
 envFrom:
 - secretRef:
-    name: api-secrets
+    name: researchpod-secrets
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
@@ -70,27 +70,25 @@ securityContext: {}
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
   enabled: true
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
-  annotations:
-    external-dns.alpha.kubernetes.io/hostname: "{{ .targetPod }}.richardr.dev"     
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
+  enabled: true
+  className: "traefik"
+  domain: "richardr.dev"
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "{{ .fullName }}-{{ .podIndex }}.richardr.dev"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+  paths:
+    - path: /
+      pathType: Prefix
   tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  # Uncomment and configure if you want TLS
+  # tls:
+  #   - secretName: research-consumer-tls
+  #     domain: richardr.dev
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -131,11 +129,11 @@ autoscaling:
 volumes:
   - name: data
     emptyDir: {}
-  - name: yugabyte-certs
-    secret:
-      secretName: yugabyte-tls-client-cert
-      optional: false
-      defaultMode: 0600
+  # - name: yugabyte-certs
+  #   secret:
+  #     secretName: yugabyte-tls-client-cert
+  #     optional: false
+  #     defaultMode: 0600
   - name: kafka-tls
     secret:
       secretName: kafka-tls
@@ -146,9 +144,9 @@ volumes:
 volumeMounts:
   - name: data
     mountPath: /app/data
-  - name: yugabyte-certs
-    mountPath: /etc/yugabyte/certs
-    readOnly: true
+  # - name: yugabyte-certs
+  #   mountPath: /etc/yugabyte/certs
+  #   readOnly: true
   - name: kafka-tls
     mountPath: /etc/kafka/certs
     readOnly: true

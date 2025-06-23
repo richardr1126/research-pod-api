@@ -1,43 +1,44 @@
 {{- if .Values.ingress.enabled -}}
+{{- $fullName := include "research-cluster.fullname" . }}
+{{- $root := . }}
+{{- range $i := until (int .Values.replicaCount) }}
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "research-cluster.fullname" . }}
+  name: {{ $fullName }}-{{ $i }}
   labels:
-    {{- include "research-cluster.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    {{- include "research-cluster.labels" $root | nindent 4 }}
+  {{- with $root.Values.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- tpl (toYaml .) (dict "podIndex" $i "fullName" $fullName) | nindent 4 }}
   {{- end }}
 spec:
-  {{- with .Values.ingress.className }}
+  {{- with $root.Values.ingress.className }}
   ingressClassName: {{ . }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if $root.Values.ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range $root.Values.ingress.tls }}
     - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
+        - {{ printf "%s-%d.%s" $fullName $i .domain | quote }}
+      secretName: {{ printf "%s-%d" .secretName $i }}
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ printf "%s-%d.%s" $fullName $i $root.Values.ingress.domain | quote }}
       http:
         paths:
-          {{- range .paths }}
+          {{- range $root.Values.ingress.paths }}
           - path: {{ .path }}
             {{- with .pathType }}
             pathType: {{ . }}
             {{- end }}
             backend:
               service:
-                name: {{ include "research-cluster.fullname" $ }}
+                name: {{ $fullName }}-{{ $i }}
                 port:
-                  number: {{ $.Values.service.port }}
+                  number: {{ $root.Values.service.port }}
           {{- end }}
-    {{- end }}
+{{- end }}
 {{- end }}

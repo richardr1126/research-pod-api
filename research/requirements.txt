@@ -29,3 +29,4 @@ langchain-postgres==0.0.13
 # Websearch dependencies
 duckduckgo-search==7.5.3
 crawl4ai==0.5.0post8
+tavily-python==0.7.8

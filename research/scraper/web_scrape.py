@@ -1,10 +1,11 @@
 """
-Web scraping functionality using DuckDuckGo and Crawl4AI.
+Web scraping functionality using Tavily and Crawl4AI.
 """
 import logging
 import subprocess
+import os
 from typing import List, Dict, Any
-from duckduckgo_search import DDGS
+from tavily import TavilyClient
 
 # Configure logging
 logging.basicConfig(
@@ -13,9 +14,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def search_duckduckgo(keywords_groups: List[List[str]], total_limit: int = 6) -> List[Dict[str, Any]]:
+def search_tavily(keywords_groups: List[List[str]], total_limit: int = 6) -> List[Dict[str, Any]]:
     """
-    Search DuckDuckGo for relevant web pages using interleaved keywords from groups.
+    Search Tavily for relevant web pages using interleaved keywords from groups.
     
     Args:
         keywords_groups: List of keyword groups from process_search_query
@@ -25,57 +26,65 @@ def search_duckduckgo(keywords_groups: List[List[str]], total_limit: int = 6) ->
         List of dictionaries containing search results
     """
     results = []
+    
+    # Get API key from environment
+    api_key = os.getenv("TAVILY_API_KEY")
+    if not api_key:
+        logger.error("TAVILY_API_KEY environment variable not set")
+        return []
+    
     try:
-        with DDGS() as ddgs:
-            # Interleave keywords from different groups
-            flattened_keywords = []
-            max_group_length = max(len(group) for group in keywords_groups)
-            
-            for i in range(max_group_length):
-                for group in keywords_groups:
-                    if i < len(group):
-                        flattened_keywords.append(group[i])
-                        if len(flattened_keywords) >= 7:  # Take only first 7 keywords
-                            break
-                if len(flattened_keywords) >= 7:
-                    break
-            
-            # Join first 7 keywords with OR
-            search_query = " OR ".join(flattened_keywords[:7])
-            logger.info(f"Searching DuckDuckGo with interleaved keywords: {search_query}")
-            
-            # Use text search with specific parameters
-            ddg_results = list(ddgs.text(
-                keywords=search_query,
-                region="us-en",
-                safesearch="moderate",
-                backend="auto",
-                max_results=total_limit
-            ))
-            
-            for result in ddg_results:
-                # Extract fields from the text search result
-                title = result.get("title")
-                body = result.get("body")
-                href = result.get("href")
+        # Initialize Tavily client
+        tavily_client = TavilyClient(api_key=api_key)
+        
+        # Interleave keywords from different groups
+        flattened_keywords = []
+        max_group_length = max(len(group) for group in keywords_groups)
+        
+        for i in range(max_group_length):
+            for group in keywords_groups:
+                if i < len(group):
+                    flattened_keywords.append(group[i])
+                    if len(flattened_keywords) >= 7:  # Take only first 7 keywords
+                        break
+            if len(flattened_keywords) >= 7:
+                break
+        
+        # Join first 7 keywords with OR
+        search_query = " OR ".join(flattened_keywords[:7])
+        logger.info(f"Searching Tavily with interleaved keywords: {search_query}")
+        
+        # Perform Tavily search
+        tavily_results = tavily_client.search(
+            query=search_query,
+            search_depth="advanced",
+            max_results=total_limit
+        )
+        
+        # Process Tavily results
+        if 'results' in tavily_results:
+            for result in tavily_results['results']:
+                title = result.get("title", "")
+                url = result.get("url", "")
+                content = result.get("content", "")
                 
-                if not href:
-                    logger.warning(f"No href found in result: {result}")
+                if not url:
+                    logger.warning(f"No URL found in result: {result}")
                     continue
-                    
+                
                 # Add keywords used for this result
                 results.append({
-                    "title": title or "",
-                    "url": href,
-                    "snippet": body or "",
-                    "date": result.get("date", ""),
+                    "title": title,
+                    "url": url,
+                    "snippet": content,
+                    "date": "",  # Tavily doesn't provide date in basic search
                     "keywords_used": flattened_keywords[:7]
                 })
-            
-        logger.info(f"Found {len(results)} total results from DuckDuckGo using interleaved keywords (limited to {total_limit})")
+        
+        logger.info(f"Found {len(results)} total results from Tavily using interleaved keywords (limited to {total_limit})")
         return results
     except Exception as e:
-        logger.error(f"Error searching DuckDuckGo: {str(e)}", exc_info=True)
+        logger.error(f"Error searching Tavily: {str(e)}", exc_info=True)
         return []
 
 def crawl_webpage(url: str) -> Dict[str, Any]:
@@ -142,7 +151,7 @@ def crawl_webpage(url: str) -> Dict[str, Any]:
 
 def search_and_crawl(keywords_groups: List[List[str]], total_limit: int = 6) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Search DuckDuckGo using keyword groups and crawl found pages.
+    Search Tavily using keyword groups and crawl found pages.
     
     Args:
         keywords_groups: List of keyword groups from process_search_query
@@ -150,16 +159,16 @@ def search_and_crawl(keywords_groups: List[List[str]], total_limit: int = 6) -> 
         
     Returns:
         Tuple containing:
-        - List of dictionaries containing original DDG search results
+        - List of dictionaries containing original Tavily search results
         - List of dictionaries containing search results with crawled content
     """
     results = []
     
     # First get search results using keyword groups
-    search_results = search_duckduckgo(keywords_groups, total_limit)
+    search_results = search_tavily(keywords_groups, total_limit)
     
-    # Save original DDG results before crawling
-    ddg_sources = [
+    # Save original Tavily results before crawling
+    tavily_sources = [
         {
             "title": result["title"],
             "url": result["url"],
@@ -185,4 +194,4 @@ def search_and_crawl(keywords_groups: List[List[str]], total_limit: int = 6) -> 
             logger.error(f"Error processing {result['url']}: {str(e)}")
             continue
     
-    return results, ddg_sources
+    return results, tavily_sources

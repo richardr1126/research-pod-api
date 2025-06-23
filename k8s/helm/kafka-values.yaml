@@ -4,15 +4,15 @@ kraft:
   enabled: true
 
 controller:
-  replicaCount: 3
+  replicaCount: 2
   automountServiceAccountToken: true
-  resources:
-    requests:
-      cpu: 250m
-      memory: 256Mi
-    limits:
-      cpu: 750m
-      memory: 1Gi
+  # resources:
+  #   requests:
+  #     cpu: 250m
+  #     memory: 256Mi
+  #   limits:
+  #     cpu: 750m
+  #     memory: 1Gi
 
 broker: # Using controller broker nodes instead of separate broker nodes
   automountServiceAccountToken: true
@@ -39,8 +39,10 @@ tls:
   sslClientAuth: none
 
 extraConfigYaml:
-  deleteTopicEnable: true
-  
+  delete.topic.enable: true
+  default.replication.factor: 2
+  offsets.topic.replication.factor: 2
+  transaction.state.log.replication.factor: 2
 
 # externalAccess:
 #   enabled: true

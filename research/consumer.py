@@ -93,7 +93,7 @@ def create_sse_consumer(pod_id: str) -> KafkaConsumer:
             value_deserializer=lambda m: json.loads(m.decode('utf-8')),
             enable_auto_commit=False,
             auto_offset_reset='earliest',
-            group_id=f'sse-group-{pod_id}',  # Unique group ID per pod
+            #group_id=None,  # Unique group ID per pod
             consumer_timeout_ms=1000,  # 1 second timeout
             max_poll_interval_ms=300000,  # 5 minutes
             security_protocol='SSL',
@@ -328,7 +328,7 @@ def events(pod_id):
                         for message in messages:
                             if message and message.value:
                                 yield f"data: {json.dumps(message.value)}\n\n"
-                                sse_consumer.commit()
+                                #sse_consumer.commit()
                                 if message.value.get("status") in ["COMPLETED", "ERROR"]:
                                     return
                 

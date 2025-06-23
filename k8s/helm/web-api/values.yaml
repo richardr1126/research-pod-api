@@ -7,7 +7,7 @@ replicaCount: 2
 
 env:
 - name: KAFKA_BOOTSTRAP_SERVERS
-  value: kafka-controller-0.kafka-controller-headless.default.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.default.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.default.svc.cluster.local:9092
+  value: kafka-controller-0.kafka-controller-headless.default.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.default.svc.cluster.local:9092
 - name: REDIS_URL
   value: redis://redis-master.default.svc.cluster.local:6379
 - name: FLASK_ENV
@@ -17,7 +17,7 @@ env:
 
 envFrom:
 - secretRef:
-    name: api-secrets
+    name: researchpod-secrets
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
@@ -77,20 +77,20 @@ service:
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: true
-  className: "nginx"
+  className: "traefik"
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    external-dns.alpha.kubernetes.io/hostname: api.richardr.dev
-    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+    #cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: researchpod.richardr.dev
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
   hosts:
-    - host: api.richardr.dev
+    - host: researchpod.richardr.dev
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - secretName: web-api-tls
-      hosts:
-        - api.richardr.dev
+  # tls:
+  #   - secretName: web-api-tls
+  #     hosts:
+  #       - api.richardr.dev
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -130,11 +130,11 @@ autoscaling:
 
 # Additional volumes on the output Deployment definition.
 volumes:
-  - name: yugabyte-certs
-    secret:
-      secretName: yugabyte-tls-client-cert
-      optional: false
-      defaultMode: 0600
+  # - name: yugabyte-certs
+  #   secret:
+  #     secretName: yugabyte-tls-client-cert
+  #     optional: false
+  #     defaultMode: 0600
   - name: kafka-tls
     secret:
       secretName: kafka-tls
@@ -147,9 +147,9 @@ volumes:
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
-  - name: yugabyte-certs
-    mountPath: /etc/yugabyte/certs
-    readOnly: true
+  # - name: yugabyte-certs
+  #   mountPath: /etc/yugabyte/certs
+  #   readOnly: true
   - name: kafka-tls
     mountPath: /etc/kafka/certs
     readOnly: true

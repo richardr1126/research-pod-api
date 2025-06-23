@@ -10,10 +10,6 @@ metadata:
   name: {{ $svcName }}-{{ $i }}
   labels:
     {{- include "research-cluster.labels" $root | nindent 4 }}
-  annotations:
-    {{- with $root.Values.service.annotations }}
-    {{- tpl (toYaml .) (dict "targetPod" (printf "%s-%d" $svcName $i)) | nindent 4 }}
-    {{- end }}
 spec:
   type: {{ $root.Values.service.type }}
   ports:
